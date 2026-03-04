@@ -7,9 +7,7 @@ class OrderModel {
   final String item;
   final int quantity;
   final int price;
-  final LatLng pickupLocation;
   final LatLng deliveryLocation;
-  final String pickupAddress;
   final String deliveryAddress;
 
   OrderModel({
@@ -19,9 +17,7 @@ class OrderModel {
     required this.item,
     required this.quantity,
     required this.price,
-    required this.pickupLocation,
     required this.deliveryLocation,
-    required this.pickupAddress,
     required this.deliveryAddress,
   });
 }
