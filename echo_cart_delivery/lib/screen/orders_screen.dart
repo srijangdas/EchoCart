@@ -77,7 +77,6 @@ class OrdersScreen extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  // Date selector mimic
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -109,7 +108,6 @@ class OrdersScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // Orders list
             Expanded(
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(
@@ -183,7 +181,6 @@ final class OrderCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header row: title and action icons
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
@@ -198,14 +195,14 @@ final class OrderCard extends StatelessWidget {
                     children: [
                       GestureDetector(
                         onTap: () {
-                          // dial - can integrate url_launcher
+                          // can integrate call
                         },
                         child: _smallCircleIcon(Icons.call),
                       ),
                       const SizedBox(width: 8),
                       GestureDetector(
                         onTap: () {
-                          // open map / navigation
+                          // open navigation
                         },
                         child: _smallCircleIcon(Icons.navigation),
                       ),
@@ -217,7 +214,6 @@ final class OrderCard extends StatelessWidget {
 
             const Divider(height: 1, thickness: 1),
 
-            // Items
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Column(
@@ -243,7 +239,6 @@ final class OrderCard extends StatelessWidget {
 
             const Divider(height: 1, thickness: 1),
 
-            // Action buttons
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               child: Row(

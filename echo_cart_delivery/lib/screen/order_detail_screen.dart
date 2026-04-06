@@ -69,7 +69,6 @@ class OrderDetailScreen extends StatelessWidget {
             ),
           ),
 
-          // Embedded Google Map
           Expanded(
             child: ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
