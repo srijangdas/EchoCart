@@ -1,4 +1,4 @@
-package icu.telepathystudios.echocart.dto;
+package icu.telepathystudios.echocart.dto.auth;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
