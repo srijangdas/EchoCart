@@ -11,11 +11,17 @@ import org.springframework.web.bind.annotation.*;
 
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/auth")
+@CrossOrigin(origins = "*")
 @AllArgsConstructor
 public class AuthController {
     private final AuthService authService;
 
+    @PostMapping("/register/d")
+    public String test() {
+        System.out.println("Here");
+        return "HIT";
+    }
     @PostMapping("/register/user")
     public RegisterResponse registerUser(@Valid @RequestBody RegisterRequest request){
         return authService.register(request, "USER");
@@ -26,12 +32,12 @@ public class AuthController {
         return authService.register(request, "DELIVERY");
     }
 
-    @GetMapping("/login/user")
+    @PostMapping("/login/user")
     public LoginResponse loginUser(@Valid @RequestBody LoginRequest request){
         return authService.login(request, "USER");
     }
 
-    @GetMapping("/login/delivery")
+    @PostMapping("/login/delivery")
     public LoginResponse loginDelivery(@Valid @RequestBody LoginRequest request){
         return authService.login(request, "DELIVERY");
     }

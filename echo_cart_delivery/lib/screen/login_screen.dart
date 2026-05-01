@@ -157,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               const SizedBox(height: 8),
                               TextFormField(
                                 controller: _phoneCtrl,
-                                keyboardType: TextInputType.phone,
+                                //keyboardType: TextInputType.phone,
                                 decoration: InputDecoration(
                                   hintText: 'e.g. 9876543210',
                                   filled: true,
