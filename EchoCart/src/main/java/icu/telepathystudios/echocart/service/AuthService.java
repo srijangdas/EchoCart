@@ -20,18 +20,18 @@ public class AuthService {
 
     public RegisterResponse register(RegisterRequest registerRequest, String role)
     {
-        if(userRepo.findByEmail(registerRequest.getEmail()).isPresent()){
-            throw new RuntimeException("Email already exists with role: "+ userRepo.findByEmail(registerRequest.getEmail()).get().getRole());
+        if(userRepo.findByPhoneNo(registerRequest.getPhoneNo()).isPresent()){
+            throw new RuntimeException("Phone Number already exists with role: "+ userRepo.findByPhoneNo(registerRequest.getPhoneNo()).get().getRole());
         }
 
         User user = new User();
-        user.setEmail(registerRequest.getEmail());
+        user.setPhoneNo(registerRequest.getPhoneNo());
         user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
         user.setRole(role);
 
         userRepo.save(user);
 
-        String token = jwtUtil.generateToken(user.getEmail(), role);
+        String token = jwtUtil.generateToken(user.getPhoneNo(), role);
 
         return new RegisterResponse(
                 token
@@ -39,13 +39,13 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest loginRequest, String role){
-        if(userRepo.findByEmail(loginRequest.getEmail()).isEmpty()){
-            throw new RuntimeException("Email doesn't exist, register");
+        if(userRepo.findByPhoneNo(loginRequest.getPhoneNo()).isEmpty()){
+            throw new RuntimeException("Phone Number doesn't exist, register");
         }
 
-        String userRole = userRepo.findByEmail(loginRequest.getEmail()).get().getRole();
+        String userRole = userRepo.findByPhoneNo(loginRequest.getPhoneNo()).get().getRole();
 
-        if(!passwordEncoder.matches(loginRequest.getPassword(), userRepo.findByEmail(loginRequest.getEmail()).get().getPassword())){
+        if(!passwordEncoder.matches(loginRequest.getPassword(), userRepo.findByPhoneNo(loginRequest.getPhoneNo()).get().getPassword())){
             throw new RuntimeException("Password doesn't match");
         }
 
@@ -53,7 +53,7 @@ public class AuthService {
             throw new RuntimeException("Invalid Login, account exists as: "+ userRole);
         }
 
-        String token = jwtUtil.generateToken(loginRequest.getEmail(), role);
+        String token = jwtUtil.generateToken(loginRequest.getPhoneNo(), role);
 
         return new LoginResponse(
             token
