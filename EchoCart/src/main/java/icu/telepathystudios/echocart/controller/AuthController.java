@@ -9,6 +9,8 @@ import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 
 @RestController
 @RequestMapping("/api/auth")
@@ -17,11 +19,6 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
     private final AuthService authService;
 
-    @PostMapping("/register/d")
-    public String test() {
-        System.out.println("Here");
-        return "HIT";
-    }
     @PostMapping("/register/user")
     public RegisterResponse registerUser(@Valid @RequestBody RegisterRequest request){
         return authService.register(request, "USER");
@@ -33,12 +30,19 @@ public class AuthController {
     }
 
     @PostMapping("/login/user")
-    public LoginResponse loginUser(@Valid @RequestBody LoginRequest request){
-        return authService.login(request, "USER");
+    public LoginResponse loginUser(@Valid @RequestBody LoginRequest request, @RequestHeader("DeviceId") String deviceId){
+        return authService.login(request, "USER", deviceId);
     }
 
     @PostMapping("/login/delivery")
-    public LoginResponse loginDelivery(@Valid @RequestBody LoginRequest request){
-        return authService.login(request, "DELIVERY");
+    public LoginResponse loginDelivery(@Valid @RequestBody LoginRequest request, @RequestHeader("DeviceId") String deviceId){
+        return authService.login(request, "DELIVERY", deviceId);
     }
+
+    @PostMapping("/login/refresh")
+    public LoginResponse loginRefresh(@RequestBody Map<String, String> body, @RequestHeader("DeviceId") String deviceId){
+        return authService.refreshLogin(body.get("refreshToken"), deviceId);
+    }
+
+    //Write logout endpoint later
 }

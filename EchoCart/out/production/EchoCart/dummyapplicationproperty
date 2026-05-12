@@ -1,8 +1,0 @@
-spring.application.name=EchoCart
-
-spring.datasource.url= jdbc:postgresql://localhost:5432/DBNAME
-spring.datasource.username=POSTGRES_NAME
-spring.datasource.password=POSTGRESPASS_HERE
-
-
-jwt.custom.password=hjfsjkvhjksnfshn

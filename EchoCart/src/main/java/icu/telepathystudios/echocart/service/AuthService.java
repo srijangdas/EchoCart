@@ -4,12 +4,19 @@ import icu.telepathystudios.echocart.dto.auth.LoginRequest;
 import icu.telepathystudios.echocart.dto.auth.LoginResponse;
 import icu.telepathystudios.echocart.dto.auth.RegisterRequest;
 import icu.telepathystudios.echocart.dto.auth.RegisterResponse;
+import icu.telepathystudios.echocart.model.RefreshToken;
 import icu.telepathystudios.echocart.model.User;
+import icu.telepathystudios.echocart.repo.RefreshTokenRepo;
 import icu.telepathystudios.echocart.repo.UserRepo;
 import icu.telepathystudios.echocart.util.JwtUtil;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.Date;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -17,6 +24,7 @@ public class AuthService {
     private final UserRepo userRepo;
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenRepo refreshTokenRepo;
 
     public RegisterResponse register(RegisterRequest registerRequest, String role)
     {
@@ -38,14 +46,14 @@ public class AuthService {
         );
     }
 
-    public LoginResponse login(LoginRequest loginRequest, String role){
-        if(userRepo.findByPhoneNo(loginRequest.getPhoneNo()).isEmpty()){
-            throw new RuntimeException("Phone Number doesn't exist, register");
-        }
+    @Transactional
+    public LoginResponse login(LoginRequest loginRequest, String role, String deviceId){
+        User user = userRepo.findByPhoneNo(loginRequest.getPhoneNo())
+                .orElseThrow(() -> new RuntimeException("Phone Number doesn't exist, register"));
 
-        String userRole = userRepo.findByPhoneNo(loginRequest.getPhoneNo()).get().getRole();
+        String userRole = user.getRole();
 
-        if(!passwordEncoder.matches(loginRequest.getPassword(), userRepo.findByPhoneNo(loginRequest.getPhoneNo()).get().getPassword())){
+        if(!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())){
             throw new RuntimeException("Password doesn't match");
         }
 
@@ -55,8 +63,59 @@ public class AuthService {
 
         String token = jwtUtil.generateToken(loginRequest.getPhoneNo(), role);
 
+        String refreshToken = refreshTokenCreate(user, deviceId);
+
         return new LoginResponse(
-            token
+            token, refreshToken
        );
+    }
+
+    @Transactional
+    public LoginResponse refreshLogin(String refreshToken, String deviceId){
+        String hash = hashToken(refreshToken);
+
+        RefreshToken rt = refreshTokenRepo.findByTokenHash(hash)
+                .orElseThrow(() -> new RuntimeException("Refresh token doesn't exist"));
+
+        if (rt.getExpiresAt().before(new Date())) {
+            throw new RuntimeException("Refresh token expired");
+        }
+
+        User user = userRepo.findById(rt.getUserId())
+                .orElseThrow(() -> new RuntimeException("Internal Error with token"));
+
+
+        String newRefreshToken = refreshTokenCreate(user, deviceId);
+
+        String newAccess = jwtUtil.generateToken(user.getPhoneNo(), user.getRole());
+
+        return new LoginResponse(newAccess, newRefreshToken);
+    }
+
+    public String refreshTokenCreate(User user, String deviceId){
+
+        refreshTokenRepo.deleteByUserIdAndDeviceId(user.getId(), deviceId);
+
+        String newRefreshToken = jwtUtil.generateRefreshToken();
+        String newHashedToken = hashToken(newRefreshToken);
+
+        RefreshToken rt = new RefreshToken();
+        rt.setUserId(user.getId());
+        rt.setTokenHash(newHashedToken);
+        rt.setDeviceId(deviceId);
+        rt.setExpiresAt(new Date(System.currentTimeMillis() + 15L * 24 * 60 * 60 * 1000));
+
+        refreshTokenRepo.save(rt);
+
+        return newRefreshToken;
+    }
+
+    //Change it later
+    public void logout(UUID userId, String deviceId){
+        refreshTokenRepo.deleteByUserIdAndDeviceId(userId, deviceId);
+    }
+
+    public String hashToken(String token) {
+        return  DigestUtils.sha256Hex(token);
     }
 }
