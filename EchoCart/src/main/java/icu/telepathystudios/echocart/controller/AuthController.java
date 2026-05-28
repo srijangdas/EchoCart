@@ -1,13 +1,12 @@
 package icu.telepathystudios.echocart.controller;
 
-import icu.telepathystudios.echocart.dto.auth.LoginRequest;
-import icu.telepathystudios.echocart.dto.auth.LoginResponse;
-import icu.telepathystudios.echocart.dto.auth.RegisterRequest;
-import icu.telepathystudios.echocart.dto.auth.RegisterResponse;
+import icu.telepathystudios.echocart.dto.auth.*;
 import icu.telepathystudios.echocart.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 
 @RestController
@@ -17,28 +16,51 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
     private final AuthService authService;
 
-    @PostMapping("/register/d")
-    public String test() {
-        System.out.println("Here");
-        return "HIT";
-    }
-    @PostMapping("/register/user")
-    public RegisterResponse registerUser(@Valid @RequestBody RegisterRequest request){
-        return authService.register(request, "USER");
+    @PostMapping("/register/{role}")
+    public RegisterResponse register(
+            @PathVariable String role,
+            @Valid @RequestBody RegisterRequest request,
+            @RequestHeader("X-Device-Id") String deviceId
+    ) {
+
+        role = role.toUpperCase();
+
+        validateRole(role);
+
+        return authService.register(request, role, deviceId);
     }
 
-    @PostMapping("/register/delivery")
-    public RegisterResponse registerDelivery(@Valid @RequestBody RegisterRequest request){
-        return authService.register(request, "DELIVERY");
+    @PostMapping("/login/{role}")
+    public LoginResponse login(
+            @PathVariable String role,
+            @Valid @RequestBody LoginRequest request,
+            @RequestHeader("X-Device-Id") String deviceId
+    ) {
+
+        role = role.toUpperCase();
+
+        validateRole(role);
+
+        return authService.login(request, role, deviceId);
     }
 
-    @PostMapping("/login/user")
-    public LoginResponse loginUser(@Valid @RequestBody LoginRequest request){
-        return authService.login(request, "USER");
+    @PostMapping("/login/refresh")
+    public LoginResponse refresh(
+            @RequestBody RefreshRequest request,
+            @RequestHeader("X-Device-Id") String deviceId
+    ) {
+        return authService.refreshLogin(
+                request.getRefreshToken(),
+                deviceId
+        );
     }
 
-    @PostMapping("/login/delivery")
-    public LoginResponse loginDelivery(@Valid @RequestBody LoginRequest request){
-        return authService.login(request, "DELIVERY");
+    private void validateRole(String role) {
+        if (!role.equals("USER")
+                && !role.equals("DELIVERY")) {
+            throw new RuntimeException("Invalid role");
+        }
     }
+
+    //Write logout endpoint later
 }
