@@ -31,3 +31,9 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### JAVA ###
+
+*.env
+*.properties
+*.yml
