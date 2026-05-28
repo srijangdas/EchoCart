@@ -10,3 +10,5 @@ jwt.custom.password=hjfsjkvhjksnfshn
 
 spring.devtools.restart.enabled=true
 spring.devtools.livereload.enabled=true
+
+spring.profiles.active=docker
