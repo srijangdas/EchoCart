@@ -4,7 +4,7 @@ import icu.telepathystudios.echocart.dto.auth.LoginRequest;
 import icu.telepathystudios.echocart.dto.auth.LoginResponse;
 import icu.telepathystudios.echocart.dto.auth.RegisterRequest;
 import icu.telepathystudios.echocart.dto.auth.RegisterResponse;
-import icu.telepathystudios.echocart.model.RefreshToken;
+import icu.telepathystudios.echocart.model.auth.RefreshToken;
 import icu.telepathystudios.echocart.model.User;
 import icu.telepathystudios.echocart.repo.RefreshTokenRepo;
 import icu.telepathystudios.echocart.repo.UserRepo;
@@ -16,6 +16,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -26,7 +27,8 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenRepo refreshTokenRepo;
 
-    public RegisterResponse register(RegisterRequest registerRequest, String role)
+    @Transactional
+    public RegisterResponse register(RegisterRequest registerRequest, String role, String deviceId)
     {
         if(userRepo.findByPhoneNo(registerRequest.getPhoneNo()).isPresent()){
             throw new RuntimeException("Phone Number already exists with role: "+ userRepo.findByPhoneNo(registerRequest.getPhoneNo()).get().getRole());
@@ -41,8 +43,10 @@ public class AuthService {
 
         String token = jwtUtil.generateToken(user.getPhoneNo(), role);
 
+        String refreshToken = refreshTokenCreate(user, deviceId);
+
         return new RegisterResponse(
-                token
+                token, refreshToken
         );
     }
 
@@ -71,48 +75,86 @@ public class AuthService {
     }
 
     @Transactional
-    public LoginResponse refreshLogin(String refreshToken, String deviceId){
+    public LoginResponse refreshLogin(
+            String refreshToken,
+            String deviceId
+    ) {
+
         String hash = hashToken(refreshToken);
 
         RefreshToken rt = refreshTokenRepo.findByTokenHash(hash)
-                .orElseThrow(() -> new RuntimeException("Refresh token doesn't exist"));
+                        .orElseThrow(() -> new RuntimeException("Refresh token doesn't exist"));
 
         if (rt.getExpiresAt().before(new Date())) {
             throw new RuntimeException("Refresh token expired");
         }
 
-        User user = userRepo.findById(rt.getUserId())
-                .orElseThrow(() -> new RuntimeException("Internal Error with token"));
+        User user = userRepo.findById(rt.getUserId()).orElseThrow(() ->
+                        new RuntimeException("Internal Error with token"));
 
+        String finalRefreshToken = refreshToken;
 
-        String newRefreshToken = refreshTokenCreate(user, deviceId);
+        Date newExpiry =
+                new Date(System.currentTimeMillis()
+                        + 30L * 24 * 60 * 60 * 1000);
 
-        String newAccess = jwtUtil.generateToken(user.getPhoneNo(), user.getRole());
+        if (shouldRefreshToken(rt.getExpiresAt())) {
 
-        return new LoginResponse(newAccess, newRefreshToken);
-    }
+            finalRefreshToken = jwtUtil.generateRefreshToken();
 
-    public String refreshTokenCreate(User user, String deviceId){
+            rt.setTokenHash(hashToken(finalRefreshToken));
+        }
 
-        refreshTokenRepo.deleteByUserIdAndDeviceId(user.getId(), deviceId);
-
-        String newRefreshToken = jwtUtil.generateRefreshToken();
-        String newHashedToken = hashToken(newRefreshToken);
-
-        RefreshToken rt = new RefreshToken();
-        rt.setUserId(user.getId());
-        rt.setTokenHash(newHashedToken);
-        rt.setDeviceId(deviceId);
-        rt.setExpiresAt(new Date(System.currentTimeMillis() + 15L * 24 * 60 * 60 * 1000));
+        rt.setExpiresAt(newExpiry);
 
         refreshTokenRepo.save(rt);
 
-        return newRefreshToken;
+        String newAccess = jwtUtil.generateToken(user.getPhoneNo(), user.getRole());
+
+        return new LoginResponse(
+                newAccess,
+                finalRefreshToken
+        );
+    }
+
+    @Transactional
+    public String refreshTokenCreate(User user, String deviceId){
+
+        String refreshToken = jwtUtil.generateRefreshToken();
+
+        String hash = hashToken(refreshToken);
+
+        Date expiry = new Date(System.currentTimeMillis()
+                        + 30L * 24 * 60 * 60 * 1000);
+
+        Optional<RefreshToken> existing = refreshTokenRepo.findByUserIdAndDeviceId(
+                                user.getId(),
+                                deviceId);
+
+        RefreshToken rt = existing.orElse(new RefreshToken());
+
+        rt.setUserId(user.getId());
+        rt.setDeviceId(deviceId);
+        rt.setTokenHash(hash);
+        rt.setExpiresAt(expiry);
+
+        refreshTokenRepo.save(rt);
+
+        return refreshToken;
     }
 
     //Change it later
     public void logout(UUID userId, String deviceId){
         refreshTokenRepo.deleteByUserIdAndDeviceId(userId, deviceId);
+    }
+
+    public boolean shouldRefreshToken(Date expiresAt){
+        long sevenDaysMillis = 7L * 24 * 60 * 60 * 1000;
+
+        long timeLeft =  expiresAt.getTime() - System.currentTimeMillis();
+
+        //true if >>7 days left
+        return timeLeft <= sevenDaysMillis;
     }
 
     public String hashToken(String token) {

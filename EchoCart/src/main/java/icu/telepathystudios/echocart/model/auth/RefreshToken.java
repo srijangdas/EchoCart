@@ -1,4 +1,4 @@
-package icu.telepathystudios.echocart.model;
+package icu.telepathystudios.echocart.model.auth;
 
 import jakarta.persistence.*;
 import lombok.Data;

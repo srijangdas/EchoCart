@@ -6,3 +6,7 @@ spring.datasource.password=POSTGRESPASS_HERE
 
 
 jwt.custom.password=hjfsjkvhjksnfshn
+
+
+spring.devtools.restart.enabled=true
+spring.devtools.livereload.enabled=true

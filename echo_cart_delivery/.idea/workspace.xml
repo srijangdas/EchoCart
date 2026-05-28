@@ -4,27 +4,55 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="766d1f4a-ce95-4990-b055-62d4921806c9" name="Changes" comment="Fixed Configs, basically updated everything to jdk 24.">
-      <change beforePath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/config/SecurityConfig.java" afterDir="false" />
+    <list default="true" id="766d1f4a-ce95-4990-b055-62d4921806c9" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/controller/ProfileController.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/dto/auth/RefreshRequest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/dto/profile/CustomerProfileRequest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/dto/profile/CustomerProfileResponse.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/dto/profile/PartnerProfileRequest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/dto/profile/PartnerProfileResponse.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/model/profile/CustomerProfile.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/model/profile/PartnerProfile.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/repo/CustomerProfileRepo.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/repo/PartnerProfileRepo.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/service/ProfileService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/controller/AuthController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/controller/AuthController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/service/JwtFilter.java" beforeDir="false" afterPath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/service/JwtFilter.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/dto/auth/RegisterResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/dto/auth/RegisterResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/model/DeliveryPartner.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/model/RefreshToken.java" beforeDir="false" afterPath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/model/auth/RefreshToken.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/repo/RefreshTokenRepo.java" beforeDir="false" afterPath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/repo/RefreshTokenRepo.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/service/AuthService.java" beforeDir="false" afterPath="$PROJECT_DIR$/../EchoCart/src/main/java/icu/telepathystudios/echocart/service/AuthService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../EchoCart/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/../EchoCart/src/main/resources/application.properties" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screen/login_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screen/login_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/services/auth_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/services/auth_service.dart" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
   </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {}
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/srijangdas/EchoCart.git&quot;,
+    &quot;accountId&quot;: &quot;f9b5d78e-a2d1-4f82-a0d2-894022409d0a&quot;
+  }
+}</component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 7,
+  &quot;fromUser&quot;: false
+}</component>
   <component name="ProjectId" id="3D7UfXKh0q9Kl8un3xeIGNS741E" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectView">
     <navigator currentView="ProjectPane" proportions="" version="1" />
     <panes>
@@ -37,15 +65,25 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">
-    <property name="RunOnceActivity.cidr.known.project.marker" value="true" />
-    <property name="cidr.known.project.marker" value="true" />
-    <property name="dart.analysis.tool.window.force.activate" value="true" />
-    <property name="dart.analysis.tool.window.visible" value="false" />
-    <property name="io.flutter.reload.alreadyRun" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
-    <property name="show.migrate.to.gradle.popup" value="false" />
-  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Flutter.main.dart.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "dart.analysis.tool.window.visible": "false",
+    "git-widget-placeholder": "java-backend",
+    "io.flutter.project.isFirstOpen": "true",
+    "io.flutter.reload.alreadyRun": "true",
+    "kotlin-language-version-configured": "true",
+    "settings.editor.selected.configurable": "reference.settingsdialog.project.gradle",
+    "show.migrate.to.gradle.popup": "false"
+  }
+}]]></component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
@@ -76,7 +114,19 @@
       <map>
         <entry key="MAIN">
           <value>
-            <State />
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="flutter-dev" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
           </value>
         </entry>
       </map>
