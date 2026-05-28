@@ -31,3 +31,14 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### JAVA ###
+application.properties
+*.env
+*.properties
+*.yml
+
+#DOCKER
+
+app.jar
+echocart-backend.tar
