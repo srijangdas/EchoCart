@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../utils/colors.dart';
 import '../models/order_model.dart';
+import '../utils/utils.dart';
 import 'order_detail_screen.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
-
 
 class OrdersScreen extends StatelessWidget {
   OrdersScreen({super.key});
@@ -201,8 +201,18 @@ final class OrderCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       GestureDetector(
-                        onTap: () {
-                          // open navigation
+                        onTap: () async {
+                          final error = await openLocationInMaps(
+                            order.deliveryLocation,
+                            order.deliveryAddress,
+                          );
+                          if (error != null && context.mounted) {
+                            showAppSnackbar(
+                              context: context,
+                              type: SnackbarType.error,
+                              description: error,
+                            );
+                          }
                         },
                         child: _smallCircleIcon(Icons.navigation),
                       ),
