@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: echocart-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: echocart
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: tempPassword
+    ports:
+      - "5432:5432"
+
+  backend:
+    image: srijangdas/echocart-backend:latest
+    container_name: echocart-backend
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - postgres
+
+networks:
+  default:
+    name: echocart-network
