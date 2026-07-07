@@ -6,12 +6,36 @@ import '../utils/utils.dart';
 import 'order_detail_screen.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/order_service.dart';
 
-class OrdersScreen extends StatelessWidget {
-  OrdersScreen({super.key});
+class OrdersScreen extends StatefulWidget {
+  const OrdersScreen({super.key});
 
+  @override
+  State<OrdersScreen> createState() => _OrdersScreenState();
+}
+
+class _OrdersScreenState extends State<OrdersScreen> {
   final DateTime now = DateTime.now();
   final DateFormat formatter = DateFormat('dd/MM/yyyy');
+  final OrderService _orderService = OrderService();
+
+  late List<OrderModel> _orders;
+
+  @override
+  void initState() {
+    super.initState();
+    _orders = List<OrderModel>.from(_sampleOrders);
+  }
+
+  Future<void> _onOrderStatusChanged(OrderModel order) async {
+    setState(() {});
+    if (order.status == OrderStatus.completed) {
+      await _orderService.addCompletedOrder(order);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     String formattedDate = formatter.format(now);
@@ -109,16 +133,50 @@ class OrdersScreen extends StatelessWidget {
             const SizedBox(height: 12),
 
             Expanded(
-              child: ListView.separated(
+              child: ListView.builder(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 8,
                 ),
-                itemCount: _sampleOrders.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemCount: _orders.length,
                 itemBuilder: (context, index) {
-                  final order = _sampleOrders[index];
-                  return OrderCard(order: order);
+                  final order = _orders[index];
+                  final card = OrderCard(
+                    order: order,
+                    onStatusChanged: _onOrderStatusChanged,
+                  );
+
+                  Widget item = card;
+                  if (order.status != OrderStatus.pending &&
+                      order.status != OrderStatus.accepted) {
+                    item = Dismissible(
+                      key: ValueKey(order.id),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        color: Colors.redAccent,
+                        child: const Icon(Icons.delete, color: Colors.white),
+                      ),
+                      onDismissed: (_) {
+                        setState(() {
+                          if (index >= 0 && index < _orders.length) {
+                            _orders.removeAt(index);
+                          }
+                        });
+                      },
+                      child: card,
+                    );
+                  }
+
+                  // Add spacing after each item except last
+                  return Column(
+                    children: [
+                      item,
+                      if (index != _orders.length - 1)
+                        const SizedBox(height: 12),
+                    ],
+                  );
                 },
               ),
             ),
@@ -152,10 +210,24 @@ final List<OrderModel> _sampleOrders = [
   ),
 ];
 
-final class OrderCard extends StatelessWidget {
+class OrderCard extends StatefulWidget {
   final OrderModel order;
+  final void Function(OrderModel order)? onStatusChanged;
 
-  const OrderCard({super.key, required this.order});
+  const OrderCard({super.key, required this.order, this.onStatusChanged});
+
+  @override
+  State<OrderCard> createState() => _OrderCardState();
+}
+
+class _OrderCardState extends State<OrderCard> {
+  late OrderModel order;
+
+  @override
+  void initState() {
+    super.initState();
+    order = widget.order;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -186,16 +258,25 @@ final class OrderCard extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      order.customerName,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            order.customerName,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _statusChip(),
+                        const SizedBox(width: 8),
+                      ],
                     ),
                   ),
                   Row(
                     children: [
                       GestureDetector(
-                        onTap: () {
-                          // can integrate call
+                        onTap: () async {
+                          await _openDialer(context, order.customerPhone);
                         },
                         child: _smallCircleIcon(Icons.call),
                       ),
@@ -255,7 +336,19 @@ final class OrderCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {},
+                      onPressed: order.status == OrderStatus.completed
+                          ? null
+                          : () {
+                              setState(() {
+                                order.status = OrderStatus.rejected;
+                              });
+                              widget.onStatusChanged?.call(order);
+                              showAppSnackbar(
+                                context: context,
+                                type: SnackbarType.error,
+                                description: 'Order rejected',
+                              );
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: declineOrder,
                         foregroundColor: Colors.blue.shade800,
@@ -275,7 +368,31 @@ final class OrderCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {},
+                      onPressed: order.status == OrderStatus.completed
+                          ? null
+                          : () {
+                              if (order.status == OrderStatus.accepted) {
+                                setState(() {
+                                  order.status = OrderStatus.completed;
+                                });
+                                widget.onStatusChanged?.call(order);
+                                showAppSnackbar(
+                                  context: context,
+                                  type: SnackbarType.success,
+                                  description: 'Order completed',
+                                );
+                              } else {
+                                setState(() {
+                                  order.status = OrderStatus.accepted;
+                                });
+                                widget.onStatusChanged?.call(order);
+                                showAppSnackbar(
+                                  context: context,
+                                  type: SnackbarType.success,
+                                  description: 'Order accepted',
+                                );
+                              }
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: destinationReached,
                         foregroundColor: iconColor,
@@ -285,10 +402,12 @@ final class OrderCard extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         elevation: 0,
                       ),
-                      child: const Text(
-                        'Accept\nOrder',
+                      child: Text(
+                        order.status == OrderStatus.accepted
+                            ? 'Complete\nOrder'
+                            : 'Accept\nOrder',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                        style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),
@@ -308,5 +427,58 @@ final class OrderCard extends StatelessWidget {
       decoration: BoxDecoration(color: pickedUpColor, shape: BoxShape.circle),
       child: Icon(icon, size: 18, color: iconColor),
     );
+  }
+
+  Widget _statusChip() {
+    String label;
+    Color bg;
+    switch (order.status) {
+      case OrderStatus.accepted:
+        label = 'Accepted';
+        bg = Colors.green.withAlpha(40);
+        break;
+      case OrderStatus.rejected:
+        label = 'Rejected';
+        bg = Colors.red.withAlpha(40);
+        break;
+      case OrderStatus.completed:
+        label = 'Completed';
+        bg = Colors.blue.withAlpha(40);
+        break;
+      default:
+        label = 'Pending';
+        bg = Colors.orange.withAlpha(40);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(label, style: const TextStyle(fontSize: 12)),
+    );
+  }
+
+  Future<void> _openDialer(BuildContext context, String phone) async {
+    final uri = Uri(scheme: 'tel', path: phone);
+    try {
+      final launched = await launchUrl(uri);
+      if (!launched && context.mounted) {
+        showAppSnackbar(
+          context: context,
+          type: SnackbarType.error,
+          description: 'Could not open dialer.',
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        showAppSnackbar(
+          context: context,
+          type: SnackbarType.error,
+          description: 'Could not open dialer.',
+        );
+      }
+    }
   }
 }
