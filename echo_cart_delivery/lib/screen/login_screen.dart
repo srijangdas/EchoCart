@@ -1,3 +1,4 @@
+import 'package:echo_cart_delivery/services/secure_storage_service.dart';
 import 'package:flutter/material.dart';
 
 import '../utils/colors.dart';
@@ -20,7 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _phoneCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _loading = false;
-  final _auth = AuthService(); // change baseUrl if needed
+  final _auth = AuthService.instance;
   final _driverService = DriverService();
 
   @override
@@ -54,13 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
         driverData = DriverModel.fromJson(response['driver']);
       }
 
-      String? token;
-      if (response.containsKey('token')) {
-        token = response['token']?.toString();
-        if (token != null && token.isNotEmpty) {
-          await _driverService.saveToken(token);
-        }
-      }
+      String token = _driverService.getToken().toString();
 
       if (driverData != null) {
         await _driverService.saveDriver(driverData);

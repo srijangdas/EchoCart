@@ -20,7 +20,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _phoneCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _loading = false;
-  final _auth = AuthService();
+  final _auth = AuthService.instance;
   final _driverService = DriverService();
 
   @override

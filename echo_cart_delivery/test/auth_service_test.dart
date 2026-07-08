@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('AuthService profile payload', () {
     test('builds the delivery-profile payload with all required fields', () {
-      final service = AuthService(baseUrl: 'https://example.test/api/auth');
+      final service = AuthService.instance;
 
       final payload = service.buildProfilePayload(
         name: 'John Doe',

@@ -2,20 +2,46 @@ import 'package:animated_splash_screen/animated_splash_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:echo_cart_delivery/screen/login_screen.dart';
+import 'package:echo_cart_delivery/screen/app_main_screen.dart';
+import 'package:echo_cart_delivery/services/auth_service.dart';
 
-class SplashScreen extends StatelessWidget {
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return AnimatedSplashScreen(
-      splash: Center(
-        child: Lottie.asset('assets/animations/Echocart_logo.json'),
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkLogin();
+  }
+
+  Future<void> _checkLogin() async {
+    // Wait for splash animation
+    await Future.delayed(const Duration(seconds: 1));
+
+    final loggedIn = await AuthService.instance.isLoggedIn();
+
+    if (!mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => loggedIn ? const AppMainScreen() : const LoginScreen(),
       ),
-      nextScreen: LoginScreen(),
-      splashIconSize: 300,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
       backgroundColor: const Color(0xFFFFACB1),
-      duration: 1000,
+      body: Center(
+        child: Lottie.asset('assets/animations/Echocart_logo.json', width: 300),
+      ),
     );
   }
 }

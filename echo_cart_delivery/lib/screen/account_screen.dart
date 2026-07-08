@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:echo_cart_delivery/services/secure_storage_service.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../models/driver_model.dart';
@@ -21,7 +22,7 @@ class AccountScreen extends StatefulWidget {
 class _AccountScreenState extends State<AccountScreen> {
   Future<DriverModel?> _driverFuture = Future.value(null);
   final DriverService _driverService = DriverService();
-  final AuthService _authService = AuthService();
+  final AuthService _authService = AuthService.instance;
   final OrderService _orderService = OrderService();
   Future<List<OrderModel>> _completedFuture = Future.value(<OrderModel>[]);
   StreamSubscription<void>? _orderSub;
@@ -568,6 +569,7 @@ class _AccountScreenState extends State<AccountScreen> {
               final navigator = Navigator.of(context);
               navigator.pop();
               await _driverService.clearDriver();
+              await SecureStorageService.deleteTokens();
               if (!mounted) return;
               navigator.pushReplacement(
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
