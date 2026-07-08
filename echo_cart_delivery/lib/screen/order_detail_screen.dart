@@ -4,6 +4,9 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/order_model.dart';
 import '../utils/colors.dart';
 import '../utils/utils.dart';
+import '../services/order_service.dart';
+import '../services/secure_storage_service.dart';
+import 'orders_screen.dart';
 
 class OrderDetailScreen extends StatelessWidget {
   final OrderModel order;
@@ -204,6 +207,64 @@ class OrderDetailScreen extends StatelessWidget {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: buttonMainColor,
                               foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              // Cancel order via API
+                              final token =
+                                  await SecureStorageService.getToken();
+                              if (token == null || token.isEmpty) {
+                                if (context.mounted) {
+                                  showAppSnackbar(
+                                    context: context,
+                                    type: SnackbarType.error,
+                                    description: 'No token found.',
+                                  );
+                                }
+                                return;
+                              }
+                              final svc = OrderService();
+                              final ok = await svc.cancelOrder(
+                                token: token,
+                                orderId: order.id,
+                              );
+                              if (ok) {
+                                if (context.mounted) {
+                                  showAppSnackbar(
+                                    context: context,
+                                    type: SnackbarType.success,
+                                    description: 'Order cancelled',
+                                  );
+                                  Navigator.of(context).pushReplacement(
+                                    MaterialPageRoute(
+                                      builder: (_) => const OrdersScreen(),
+                                    ),
+                                  );
+                                }
+                              } else {
+                                if (context.mounted) {
+                                  showAppSnackbar(
+                                    context: context,
+                                    type: SnackbarType.error,
+                                    description: 'Failed to cancel order',
+                                  );
+                                }
+                              }
+                            },
+                            icon: const Icon(Icons.cancel_outlined),
+                            label: const Text('Cancel order'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red[600],
+                              side: BorderSide(color: Colors.red[600]!),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),

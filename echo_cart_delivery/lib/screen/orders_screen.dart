@@ -8,6 +8,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/order_service.dart';
+import '../services/secure_storage_service.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -22,15 +23,53 @@ class _OrdersScreenState extends State<OrdersScreen> {
   final OrderService _orderService = OrderService();
 
   late List<OrderModel> _orders;
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _orders = List<OrderModel>.from(_sampleOrders);
+    _orders = [];
+    _loadOrders();
+  }
+
+  Future<void> _loadOrders() async {
+    setState(() => _loading = true);
+    try {
+      final token = await SecureStorageService.getToken();
+      if (token == null || token.isEmpty) {
+        // show cached/sample orders
+        setState(() => _orders = List<OrderModel>.from(_sampleOrders));
+      } else {
+        final list = await _orderService.fetchAvailableOrders(token: token);
+        if (list.isEmpty) {
+          // fallback to samples
+          setState(() => _orders = List<OrderModel>.from(_sampleOrders));
+        } else {
+          setState(() => _orders = list);
+        }
+      }
+    } catch (_) {
+      setState(() => _orders = List<OrderModel>.from(_sampleOrders));
+    } finally {
+      setState(() => _loading = false);
+    }
   }
 
   Future<void> _onOrderStatusChanged(OrderModel order) async {
     setState(() {});
+    if (order.status == OrderStatus.accepted) {
+      // Clear the available orders list so UI placeholder is empty
+      final acceptedOrder = order;
+      setState(() => _orders = []);
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => OrderDetailScreen(order: acceptedOrder),
+        ),
+      );
+      return;
+    }
+
     if (order.status == OrderStatus.completed) {
       await _orderService.addCompletedOrder(order);
     }
@@ -370,26 +409,27 @@ class _OrderCardState extends State<OrderCard> {
                     child: ElevatedButton(
                       onPressed: order.status == OrderStatus.completed
                           ? null
-                          : () {
-                              if (order.status == OrderStatus.accepted) {
-                                setState(() {
-                                  order.status = OrderStatus.completed;
-                                });
-                                widget.onStatusChanged?.call(order);
-                                showAppSnackbar(
-                                  context: context,
-                                  type: SnackbarType.success,
-                                  description: 'Order completed',
+                          : () async {
+                              if (order.status != OrderStatus.accepted) {
+                                setState(
+                                  () => order.status = OrderStatus.accepted,
                                 );
-                              } else {
-                                setState(() {
-                                  order.status = OrderStatus.accepted;
-                                });
                                 widget.onStatusChanged?.call(order);
                                 showAppSnackbar(
                                   context: context,
                                   type: SnackbarType.success,
                                   description: 'Order accepted',
+                                );
+                              } else {
+                                // complete
+                                setState(
+                                  () => order.status = OrderStatus.completed,
+                                );
+                                widget.onStatusChanged?.call(order);
+                                showAppSnackbar(
+                                  context: context,
+                                  type: SnackbarType.success,
+                                  description: 'Order completed',
                                 );
                               }
                             },

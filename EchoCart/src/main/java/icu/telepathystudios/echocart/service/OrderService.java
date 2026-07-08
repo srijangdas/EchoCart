@@ -1,11 +1,12 @@
 package icu.telepathystudios.echocart.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import icu.telepathystudios.echocart.dto.order.CreateOrderRequest;
 import icu.telepathystudios.echocart.dto.order.OrderResponse;
 import icu.telepathystudios.echocart.model.User;
 import icu.telepathystudios.echocart.model.order.Order;
 import icu.telepathystudios.echocart.model.order.OrderStatus;
+import icu.telepathystudios.echocart.model.profile.CustomerProfile;
+import icu.telepathystudios.echocart.repo.CustomerProfileRepo;
 import icu.telepathystudios.echocart.repo.OrderRepo;
 import icu.telepathystudios.echocart.repo.UserRepo;
 import lombok.RequiredArgsConstructor;
@@ -20,15 +21,25 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class OrderService {
+
     private final OrderRepo orderRepo;
     private final UserRepo userRepo;
+    private final CustomerProfileRepo customerProfileRepo;
+
+    public record CustomerData(
+            UUID customerId,
+            String customerName,
+            String customerNumber,
+            String deliveryLocation,
+            String deliveryCoordinates
+    ) {}
 
     public OrderResponse createOrder(CreateOrderRequest request) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
-        UUID customerId = getCustomerId(auth);
+        UUID customerId = getLoggedInCustomerId();
 
         Order order = new Order();
+
         order.setCustomerId(customerId);
         order.setOrderStatus(OrderStatus.PENDING);
         order.setOrderJson(request.getOrderJson());
@@ -43,9 +54,8 @@ public class OrderService {
     }
 
     public List<OrderResponse> getCustomerOrders() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
-        UUID customerId = getCustomerId(auth);
+        UUID customerId = getLoggedInCustomerId();
 
         return orderRepo.findByCustomerId(customerId)
                 .stream()
@@ -54,21 +64,21 @@ public class OrderService {
     }
 
     public List<OrderResponse> getAvailableOrders() {
-        return orderRepo.findByOrderStatus(OrderStatus.PENDING)
+
+        return orderRepo.findByOrderStatusAndPartnerIdIsNull(OrderStatus.PENDING)
                 .stream()
-                .filter(order -> order.getPartnerId() == null)
                 .map(this::mapToResponse)
                 .toList();
     }
 
     public OrderResponse acceptOrder(UUID orderId, UUID partnerId) {
+
         Order order = orderRepo.findById(orderId)
                 .orElseThrow(() ->
                         new RuntimeException("Order not found"));
 
-        if(order.getPartnerId() != null){
-            throw new RuntimeException(
-                    "Order already accepted");
+        if (order.getPartnerId() != null) {
+            throw new RuntimeException("Order already accepted");
         }
 
         order.setPartnerId(partnerId);
@@ -81,6 +91,7 @@ public class OrderService {
     }
 
     public OrderResponse pickupOrder(UUID orderId) {
+
         Order order = orderRepo.findById(orderId)
                 .orElseThrow(() ->
                         new RuntimeException("Order not found"));
@@ -94,6 +105,7 @@ public class OrderService {
     }
 
     public OrderResponse deliverOrder(UUID orderId) {
+
         Order order = orderRepo.findById(orderId)
                 .orElseThrow(() ->
                         new RuntimeException("Order not found"));
@@ -107,28 +119,58 @@ public class OrderService {
     }
 
     private OrderResponse mapToResponse(Order order) {
+
+        CustomerData customerData = getCustomerData(order.getCustomerId());
+
         return new OrderResponse(
                 order.getId(),
+                customerData.customerName(),
+                customerData.customerNumber(),
+                customerData.deliveryLocation(),
+                customerData.deliveryCoordinates(),
                 order.getOrderStatus(),
                 order.getOrderJson(),
-                order.getEstimatedPrice());
+                order.getEstimatedPrice()
+        );
     }
 
-    private UUID getCustomerId(Authentication auth) {
+    private UUID getLoggedInCustomerId() {
 
-        if(auth == null) {
-            throw new RuntimeException("Authentication object is null, relogin");
+        Authentication auth =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        if (auth == null) {
+            throw new RuntimeException("Authentication required");
         }
-        String phoneNo = auth.getName();
 
-        User user = userRepo.findByPhoneNo(phoneNo).orElseThrow(
-                ()->
-                        new RuntimeException("User not found")
-        );
-        if(!user.getRole().equals("USER")){
-            throw new RuntimeException("Customers Allowed Only!");
+        User user = userRepo.findByPhoneNo(auth.getName())
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        if (!user.getRole().equals("USER")) {
+            throw new RuntimeException("Customers only");
         }
 
         return user.getId();
+    }
+
+    private CustomerData getCustomerData(UUID customerId) {
+
+        User user = userRepo.findById(customerId)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        CustomerProfile customerProfile =
+                customerProfileRepo.findByUserId(customerId)
+                        .orElseThrow(() ->
+                                new RuntimeException("Customer profile not found"));
+
+        return new CustomerData(
+                customerId,
+                customerProfile.getName(),
+                user.getPhoneNo(),
+                customerProfile.getAddress(),
+                customerProfile.getCoordinates()
+        );
     }
 }

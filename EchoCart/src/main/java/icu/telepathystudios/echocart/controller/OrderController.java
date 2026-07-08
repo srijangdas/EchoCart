@@ -25,7 +25,7 @@ public class OrderController {
 
     @Operation(summary = "Create Order")
     @Parameter(name="token", in = ParameterIn.HEADER, required = true)
-    @PostMapping("/")
+    @PostMapping("")
     public OrderResponse createOrder(@RequestBody CreateOrderRequest request){
         return orderService.createOrder(request);
     }
