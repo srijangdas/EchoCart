@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../utils/colors.dart';
 import '../services/auth_service.dart';
+import '../services/driver_service.dart';
+import '../models/driver_model.dart';
+import 'profile_completion_screen.dart';
+import 'app_main_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -17,6 +21,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _passwordCtrl = TextEditingController();
   bool _loading = false;
   final _auth = AuthService();
+  final _driverService = DriverService();
 
   @override
   void dispose() {
@@ -30,19 +35,81 @@ class _SignupScreenState extends State<SignupScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
-      await _auth.register(
+      await _driverService.clearDriver();
+
+      final registerResponse = await _auth.register(
         name: _nameCtrl.text.trim(),
         phone: _phoneCtrl.text.trim(),
         password: _passwordCtrl.text,
       );
+
+      String? token;
+      if (registerResponse.containsKey('token')) {
+        token = registerResponse['token']?.toString();
+        if (token != null && token.isNotEmpty) {
+          await _driverService.saveToken(token);
+        }
+      }
+
+      if (registerResponse.containsKey('driver') &&
+          registerResponse['driver'] != null) {
+        final driverData = DriverModel.fromJson(registerResponse['driver']);
+        await _driverService.saveDriver(driverData);
+      } else {
+        final loginResponse = await _auth.login(
+          phone: _phoneCtrl.text.trim(),
+          password: _passwordCtrl.text,
+        );
+        if (loginResponse.containsKey('driver') &&
+            loginResponse['driver'] != null) {
+          final driverData = DriverModel.fromJson(loginResponse['driver']);
+          await _driverService.saveDriver(driverData);
+        }
+        if (loginResponse.containsKey('token')) {
+          token = loginResponse['token']?.toString();
+          if (token != null && token.isNotEmpty) {
+            await _driverService.saveToken(token);
+          }
+        }
+      }
+
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Account created')));
-      Navigator.of(context).pop();
+
+      bool profileCompleted =
+          registerResponse['profileCompleted'] == true ||
+          registerResponse['driver']?['profileCompleted'] == true;
+
+      if (!profileCompleted && token != null && token.isNotEmpty) {
+        try {
+          final profileResponse = await _auth.getDeliveryProfile(token: token);
+          profileCompleted =
+              profileResponse['profileCompleted'] == true ||
+              (profileResponse['name']?.toString().isNotEmpty ?? false) ||
+              (profileResponse['address']?.toString().isNotEmpty ?? false) ||
+              (profileResponse['city']?.toString().isNotEmpty ?? false) ||
+              (profileResponse['licenseNumber']?.toString().isNotEmpty ??
+                  false) ||
+              (profileResponse['vehicleNumber']?.toString().isNotEmpty ??
+                  false);
+        } catch (_) {}
+      }
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => profileCompleted
+              ? const AppMainScreen()
+              : const ProfileCompletionScreen(),
+        ),
+      );
     } catch (e) {
-      if (mounted)
-        {ScaffoldMessenger.of(context,).showSnackBar(SnackBar(content: Text('Register failed: $e')));}
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Register failed: $e')));
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -193,7 +260,8 @@ class _SignupScreenState extends State<SignupScreen> {
                                           color: Colors.white,
                                         ),
                                       )
-                                    : const Text('Create account',
+                                    : const Text(
+                                        'Create account',
                                         style: TextStyle(
                                           fontSize: 18,
                                           color: Colors.white,
