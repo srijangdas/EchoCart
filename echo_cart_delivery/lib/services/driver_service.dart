@@ -5,6 +5,7 @@ import '../models/driver_model.dart';
 class DriverService {
   static const String _driverKey = 'driver_data';
   static const String _tokenKey = 'auth_token';
+  static const String _deviceIdKey = 'device_id';
 
   /// Save driver data locally
   Future<void> saveDriver(DriverModel driver) async {
@@ -21,6 +22,16 @@ class DriverService {
       return DriverModel.fromJson(jsonDecode(driverJson));
     }
     return null;
+  }
+
+  Future<void> saveDeviceId(String deviceId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_deviceIdKey, deviceId);
+  }
+
+  Future<String?> getDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_deviceIdKey);
   }
 
   /// Save auth token

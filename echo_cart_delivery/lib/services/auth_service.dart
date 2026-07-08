@@ -1,16 +1,75 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
+import 'package:echo_cart_delivery/services/driver_service.dart';
+import 'package:echo_cart_delivery/services/secure_storage_service.dart';
 import 'package:http/http.dart' as http;
 
-class AuthService {
-  final String baseUrl;
-  final String profileBaseUrl;
+import 'package:unique_device_identifier/unique_device_identifier.dart';
+import 'package:uuid/uuid.dart';
 
-  AuthService({
-    this.baseUrl = 'http://10.0.2.2:8080/api/auth',
-    this.profileBaseUrl = 'http://10.0.2.2:8080/api',
-  });
+class AuthService {
+  AuthService._();
+
+  static final AuthService instance = AuthService._();
+  static final String baseUrl = 'https://api.echocart.in/api/auth';
+  static final String profileBaseUrl = 'https://api.echocart.in/api';
+  final _driverService = DriverService();
+
+  Future<bool> isLoggedIn() async {
+    final token = await SecureStorageService.getToken();
+    final refreshToken = await SecureStorageService.getRefreshToken();
+
+    String? deviceId = await UniqueDeviceIdentifier.getUniqueIdentifier();
+
+    if (deviceId == null) {
+      if (deviceId == null) {
+        final uuid = const Uuid().v4();
+        deviceId = "DefaultId-$uuid";
+        await _driverService.saveDeviceId(deviceId);
+      }
+    }
+
+    // 4. Save the confirmed device ID to your driver service
+    await _driverService.saveDeviceId(deviceId);
+
+    if (token != null && refreshToken != null) {
+      return true;
+    }
+
+    return false;
+  }
+
+  Future<bool> refreshLogin({required String refreshToken}) async {
+    final uri = Uri.parse('$baseUrl/login/refresh');
+
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Device-Id': _driverService.getDeviceId().toString(),
+      },
+      body: jsonEncode({
+        'refreshToken': refreshToken,
+        "deviceId": _driverService.getDeviceId(),
+      }),
+    );
+
+    final body = response.body;
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final data = jsonDecode(body) as Map<String, dynamic>;
+
+      await SecureStorageService.saveTokens(
+        token: data["token"] as String,
+        refreshToken: data["refreshToken"] as String,
+      );
+
+      return true;
+    }
+    return false;
+  }
 
   Future<Map<String, dynamic>> login({
     required String phone,
@@ -20,14 +79,24 @@ class AuthService {
 
     final response = await http.post(
       uri,
-      headers: {'Content-Type': 'application/json', 'X-Device-Id': 'sgdevice'},
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Device-Id': _driverService.getDeviceId().toString(),
+      },
       body: jsonEncode({'phoneNo': phone, 'password': password}),
     );
 
     final body = response.body;
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      return jsonDecode(body) as Map<String, dynamic>;
+      final data = jsonDecode(body) as Map<String, dynamic>;
+
+      await SecureStorageService.saveTokens(
+        token: data["token"] as String,
+        refreshToken: data["refreshToken"] as String,
+      );
+
+      return data;
     } else {
       throw Exception(
         'Login failed: ${response.statusCode} ${response.reasonPhrase} - $body',
@@ -45,14 +114,24 @@ class AuthService {
     try {
       final request = await client.postUrl(uri);
       request.headers.contentType = ContentType.json;
-      request.headers.set('X-Device-Id', 'sgdevice');
+      request.headers.set(
+        'X-Device-Id',
+        _driverService.getDeviceId().toString(),
+      );
       request.add(
         utf8.encode(jsonEncode({'phoneNo': phone, 'password': password})),
       );
       final response = await request.close();
       final body = await response.transform(utf8.decoder).join();
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        return jsonDecode(body) as Map<String, dynamic>;
+        final data = jsonDecode(body) as Map<String, dynamic>;
+
+        await SecureStorageService.saveTokens(
+          token: data["token"] as String,
+          refreshToken: data["refreshToken"] as String,
+        );
+
+        return data;
       } else {
         throw HttpException(
           'Register failed: ${response.statusCode} ${response.reasonPhrase} - $body',

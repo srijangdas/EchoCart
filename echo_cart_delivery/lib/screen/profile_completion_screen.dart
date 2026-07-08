@@ -37,7 +37,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
   final _licenseCtrl = TextEditingController();
   final _vehicleCtrl = TextEditingController();
   final _bankCtrl = TextEditingController();
-  final _authService = AuthService();
+  final _authService = AuthService.instance;
   final _driverService = DriverService();
   final _picker = ImagePicker();
 
