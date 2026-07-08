@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:echo_cart_delivery/services/driver_service.dart';
 import 'package:echo_cart_delivery/services/secure_storage_service.dart';
@@ -14,7 +13,7 @@ class AuthService {
 
   static final AuthService instance = AuthService._();
   static final String baseUrl = 'https://api.echocart.in/api/auth';
-  static final String profileBaseUrl = 'https://api.echocart.in/api';
+  static final String profileBaseUrl = 'https://api.echocart.in/api/profile';
   final _driverService = DriverService();
 
   Future<bool> isLoggedIn() async {
@@ -44,16 +43,12 @@ class AuthService {
   Future<bool> refreshLogin({required String refreshToken}) async {
     final uri = Uri.parse('$baseUrl/login/refresh');
 
+    final deviceId = await _driverService.getDeviceId() ?? '';
+
     final response = await http.post(
       uri,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Device-Id': _driverService.getDeviceId().toString(),
-      },
-      body: jsonEncode({
-        'refreshToken': refreshToken,
-        "deviceId": _driverService.getDeviceId(),
-      }),
+      headers: {'Content-Type': 'application/json', 'X-Device-Id': deviceId},
+      body: jsonEncode({'refreshToken': refreshToken, "deviceId": deviceId}),
     );
 
     final body = response.body;
@@ -77,12 +72,11 @@ class AuthService {
   }) async {
     final uri = Uri.parse('$baseUrl/login/delivery');
 
+    final deviceId = await _driverService.getDeviceId() ?? '';
+
     final response = await http.post(
       uri,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Device-Id': _driverService.getDeviceId().toString(),
-      },
+      headers: {'Content-Type': 'application/json', 'X-Device-Id': deviceId},
       body: jsonEncode({'phoneNo': phone, 'password': password}),
     );
 
@@ -114,10 +108,8 @@ class AuthService {
     try {
       final request = await client.postUrl(uri);
       request.headers.contentType = ContentType.json;
-      request.headers.set(
-        'X-Device-Id',
-        _driverService.getDeviceId().toString(),
-      );
+      final deviceId = await _driverService.getDeviceId() ?? '';
+      request.headers.set('X-Device-Id', deviceId);
       request.add(
         utf8.encode(jsonEncode({'phoneNo': phone, 'password': password})),
       );
@@ -176,7 +168,8 @@ class AuthService {
     required String token,
     required Map<String, dynamic> profileData,
   }) async {
-    final uri = Uri.parse('$profileBaseUrl/profile/delivery');
+    print(token);
+    final uri = Uri.parse('$profileBaseUrl/delivery');
     final response = await http.post(
       uri,
       headers: {
@@ -199,7 +192,8 @@ class AuthService {
   Future<Map<String, dynamic>> getDeliveryProfile({
     required String token,
   }) async {
-    final uri = Uri.parse('$profileBaseUrl/profile/delivery');
+    // GET /api/profile/delivery
+    final uri = Uri.parse('$profileBaseUrl/delivery');
     final response = await http.get(
       uri,
       headers: {
@@ -212,9 +206,7 @@ class AuthService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return jsonDecode(body) as Map<String, dynamic>;
     } else {
-      throw Exception(
-        'Profile fetch failed: ${response.statusCode} ${response.reasonPhrase} - $body',
-      );
+      return {'error': response.statusCode};
     }
   }
 }

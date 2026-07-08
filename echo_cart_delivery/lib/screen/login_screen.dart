@@ -45,47 +45,97 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await _driverService.clearDriver();
 
-      final response = await _auth.login(
+      // Perform login
+      final loginResponse = await _auth.login(
         phone: _phoneCtrl.text.trim(),
         password: _passwordCtrl.text,
       );
 
-      DriverModel? driverData;
-      if (response.containsKey('driver') && response['driver'] != null) {
-        driverData = DriverModel.fromJson(response['driver']);
-      }
-
-      String token = _driverService.getToken().toString();
-
-      if (driverData != null) {
-        await _driverService.saveDriver(driverData);
-      }
-
-      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Login successful')));
 
-      bool isProfileCompleted =
-          (driverData?.profileCompleted ?? false) ||
-          response['profileCompleted'] == true ||
-          response['driver']?['profileCompleted'] == true;
+      // Get the token saved by AuthService (secure storage) and mirror it
+      final token = await SecureStorageService.getToken() ?? '';
+      // also save token into DriverService (shared prefs) so other code can read it
+      if (token.isNotEmpty) await _driverService.saveToken(token);
 
-      if (!isProfileCompleted && token != null && token.isNotEmpty) {
-        try {
-          final profileResponse = await _auth.getDeliveryProfile(token: token);
+      if (!mounted) return;
+
+      // Fetch delivery profile
+      bool isProfileCompleted = false;
+      DriverModel? driverData;
+
+      try {
+        final profileResponse = await _auth.getDeliveryProfile(token: token);
+
+        // Check if profile has error or is incomplete
+        if (profileResponse.containsKey('error')) {
+          String errorT =
+              profileResponse['error']?.toString() ??
+              'An unknown error occurred';
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(errorT)));
+          isProfileCompleted = false;
+        } else {
+          // Check if required fields are filled according to PartnerProfileResponse
           isProfileCompleted =
-              profileResponse['profileCompleted'] == true ||
-              (profileResponse['name']?.toString().isNotEmpty ?? false) ||
-              (profileResponse['address']?.toString().isNotEmpty ?? false) ||
-              (profileResponse['city']?.toString().isNotEmpty ?? false) ||
-              (profileResponse['licenseNumber']?.toString().isNotEmpty ??
-                  false) ||
-              (profileResponse['vehicleNumber']?.toString().isNotEmpty ??
-                  false);
-        } catch (_) {}
+              (profileResponse['profileCompleted'] == true) ||
+              ((profileResponse['name']?.toString().isNotEmpty ?? false) &&
+                  (profileResponse['address']?.toString().isNotEmpty ??
+                      false) &&
+                  (profileResponse['city']?.toString().isNotEmpty ?? false) &&
+                  (profileResponse['vehicleNumber']?.toString().isNotEmpty ??
+                      false));
+
+          // Try to parse profile data into DriverModel if profile is complete
+          if (isProfileCompleted) {
+            driverData = DriverModel(
+              id: profileResponse['id'] ?? '',
+              name: profileResponse['name'] ?? '',
+              phone: profileResponse['phone'] ?? '',
+              email: profileResponse['email'] ?? '',
+              // license might not be returned by the partner response
+              licenseNumber: profileResponse['licenseNumber'] ?? '',
+              vehicleNumber: profileResponse['vehicleNumber'] ?? '',
+              vehicleType: profileResponse['vehicleType'] ?? '',
+              status: profileResponse['status'] ?? 'active',
+              // map profile picture URL if provided
+              profileImage:
+                  profileResponse['profilePictureUrl'] ??
+                  profileResponse['profileImage'] ??
+                  '',
+              rating: (profileResponse['rating'] is num)
+                  ? (profileResponse['rating'] as num).toDouble()
+                  : 0.0,
+              totalDeliveries: (profileResponse['totalDeliveries'] is num)
+                  ? profileResponse['totalDeliveries'] as int
+                  : 0,
+              address: profileResponse['address'] ?? '',
+              city: profileResponse['city'] ?? '',
+              profileCompleted: profileResponse['profileCompleted'] == true,
+              profilePictureUrl:
+                  profileResponse['profilePictureUrl'] ??
+                  profileResponse['profilePicture'] ??
+                  '',
+            );
+
+            // Save the driver data
+            await _driverService.saveDriver(driverData);
+          }
+        }
+      } catch (e) {
+        // If profile fetch fails, redirect to profile completion
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to fetch profile: $e')));
+        isProfileCompleted = false;
       }
 
+      if (!mounted) return;
+
+      // Navigate based on profile completion status
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => isProfileCompleted

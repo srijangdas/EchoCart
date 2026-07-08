@@ -43,7 +43,7 @@ class _AccountScreenState extends State<AccountScreen> {
 
   Future<void> _refreshDriver() async {
     final cachedDriver = await _driverService.getDriver();
-    final token = await _driverService.getToken();
+    final token = await SecureStorageService.getToken();
 
     if (!mounted) return;
 
@@ -177,7 +177,7 @@ class _AccountScreenState extends State<AccountScreen> {
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: () async {
-                      final token = await _driverService.getToken();
+                      final token = await SecureStorageService.getToken();
                       if (!mounted) return;
                       if (token == null || token.isEmpty) {
                         if (!mounted) return;
