@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../utils/colors.dart';
 import '../services/auth_service.dart';
+import '../services/driver_service.dart';
+import '../models/driver_model.dart';
 import 'signup_screen.dart';
 import 'app_main_screen.dart';
+import 'profile_completion_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordCtrl = TextEditingController();
   bool _loading = false;
   final _auth = AuthService(); // change baseUrl if needed
+  final _driverService = DriverService();
 
   @override
   void dispose() {
@@ -38,16 +42,61 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
-      await _auth.login(
+      await _driverService.clearDriver();
+
+      final response = await _auth.login(
         phone: _phoneCtrl.text.trim(),
         password: _passwordCtrl.text,
       );
+
+      DriverModel? driverData;
+      if (response.containsKey('driver') && response['driver'] != null) {
+        driverData = DriverModel.fromJson(response['driver']);
+      }
+
+      String? token;
+      if (response.containsKey('token')) {
+        token = response['token']?.toString();
+        if (token != null && token.isNotEmpty) {
+          await _driverService.saveToken(token);
+        }
+      }
+
+      if (driverData != null) {
+        await _driverService.saveDriver(driverData);
+      }
+
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Login successful')));
+
+      bool isProfileCompleted =
+          (driverData?.profileCompleted ?? false) ||
+          response['profileCompleted'] == true ||
+          response['driver']?['profileCompleted'] == true;
+
+      if (!isProfileCompleted && token != null && token.isNotEmpty) {
+        try {
+          final profileResponse = await _auth.getDeliveryProfile(token: token);
+          isProfileCompleted =
+              profileResponse['profileCompleted'] == true ||
+              (profileResponse['name']?.toString().isNotEmpty ?? false) ||
+              (profileResponse['address']?.toString().isNotEmpty ?? false) ||
+              (profileResponse['city']?.toString().isNotEmpty ?? false) ||
+              (profileResponse['licenseNumber']?.toString().isNotEmpty ??
+                  false) ||
+              (profileResponse['vehicleNumber']?.toString().isNotEmpty ??
+                  false);
+        } catch (_) {}
+      }
+
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const AppMainScreen()),
+        MaterialPageRoute(
+          builder: (_) => isProfileCompleted
+              ? const AppMainScreen()
+              : const ProfileCompletionScreen(),
+        ),
       );
     } catch (e) {
       if (mounted) {
@@ -63,12 +112,34 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _demoLogin() async {
     setState(() => _loading = true);
     try {
+      await _driverService.clearDriver();
+
       // simulate network delay
       await Future.delayed(const Duration(milliseconds: 600));
+
+      // Create demo driver data
+      final demoDriver = DriverModel(
+        id: 'demo_001',
+        name: 'John Doe',
+        phone: '9876543210',
+        email: 'john.doe@echocart.com',
+        licenseNumber: 'DL-2024-123456',
+        vehicleNumber: 'KA-01-AB-1234',
+        vehicleType: 'Two Wheeler',
+        status: 'active',
+        profileImage: '',
+        rating: 4.8,
+        totalDeliveries: 156,
+      );
+
+      // Save demo driver data
+      await _driverService.saveDriver(demoDriver);
+      await _driverService.saveToken('demo_token_123456');
+
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Demo login')));
+      ).showSnackBar(const SnackBar(content: Text('Demo login successful')));
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const AppMainScreen()),
       );
@@ -91,7 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 return Container(
                   width: double.infinity,
                   height: topHeight,
-                  padding: EdgeInsets.only(bottom: 24,),
+                  padding: EdgeInsets.only(bottom: 24),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [buttonMainColor, backgroundColor],
@@ -157,7 +228,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               const SizedBox(height: 8),
                               TextFormField(
                                 controller: _phoneCtrl,
-                                //keyboardType: TextInputType.phone,
+                                keyboardType: TextInputType.phone,
                                 decoration: InputDecoration(
                                   hintText: 'e.g. 9876543210',
                                   filled: true,
