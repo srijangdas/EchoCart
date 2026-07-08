@@ -151,3 +151,6 @@ build/
 
 ### VS Code ###
 .vscode/
+EchoCart/echocart-backend.tar
+.idea\workspace.xml
+
