@@ -98,11 +98,21 @@ export async function POST(req: Request) {
         console.error("Failed to fetch active order status:", error);
       }
 
+      const deliveryPersonName =
+        statusPayload?.deliveryPersonName ||
+        statusPayload?.deliveryManName ||
+        statusPayload?.driverName ||
+        statusPayload?.driver?.name ||
+        statusPayload?.driver?.fullName ||
+        null;
+
       const deliveryPersonMobile =
         statusPayload?.deliveryManMobile ||
         statusPayload?.deliveryPersonMobile ||
         statusPayload?.driverMobile ||
         statusPayload?.driver?.phone ||
+        statusPayload?.driver?.mobile ||
+        statusPayload?.driver?.phoneNumber ||
         null;
 
       if (normalizedStatus === "DELIVERED") {
@@ -112,6 +122,7 @@ export async function POST(req: Request) {
             message:
               "Your order has been delivered. Order tracking mode is now closed, and you can place new orders again.",
             orderStatus: normalizedStatus,
+            deliveryPersonName: deliveryPersonName,
             deliveryPersonMobile: null,
             shouldResetActiveOrder: true,
           },
@@ -125,6 +136,7 @@ export async function POST(req: Request) {
             message:
               "Your order was cancelled. You can place a new order whenever you are ready.",
             orderStatus: normalizedStatus,
+            deliveryPersonName: deliveryPersonName,
             deliveryPersonMobile: null,
             shouldResetActiveOrder: true,
           },
@@ -155,6 +167,7 @@ export async function POST(req: Request) {
         orderUpdate: {
           message,
           orderStatus: normalizedStatus,
+          deliveryPersonName: deliveryPersonName,
           deliveryPersonMobile,
           shouldResetActiveOrder: false,
         },
