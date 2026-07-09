@@ -7,8 +7,10 @@ import icu.telepathystudios.echocart.model.User;
 import icu.telepathystudios.echocart.model.order.Order;
 import icu.telepathystudios.echocart.model.order.OrderStatus;
 import icu.telepathystudios.echocart.model.profile.CustomerProfile;
+import icu.telepathystudios.echocart.model.profile.PartnerProfile;
 import icu.telepathystudios.echocart.repo.CustomerProfileRepo;
 import icu.telepathystudios.echocart.repo.OrderRepo;
+import icu.telepathystudios.echocart.repo.PartnerProfileRepo;
 import icu.telepathystudios.echocart.repo.UserRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -26,13 +28,17 @@ public class OrderService {
     private final OrderRepo orderRepo;
     private final UserRepo userRepo;
     private final CustomerProfileRepo customerProfileRepo;
+    private final PartnerProfileRepo partnerProfileRepo;
 
     public OrderStatusResponse orderStatus(UUID orderId) {
         Order order = orderRepo.findById(orderId).orElseThrow(() ->
                 new RuntimeException("Order not found"));
         UUID partnerId = order.getPartnerId();
 
-        return new OrderStatusResponse(order.getOrderStatus().toString());
+        PartnerProfile partnerProfile = partnerProfileRepo.findById(partnerId).orElseThrow(() ->
+                new RuntimeException("Partner not found"));;
+
+        return new OrderStatusResponse(order.getOrderStatus().toString(), partnerProfile.getName().toString());
     }
 
     public record CustomerData(

@@ -6,6 +6,7 @@ import { getTokens } from "@/utils/api";
 interface ActiveOrderState {
   id: string | null;
   status: string | null;
+  deliveryPersonName: string | null;
   deliveryPersonMobile: string | null;
 }
 
@@ -122,12 +123,14 @@ export default function VoiceInterface({
           onOrderStateChange({
             id: null,
             status: null,
+            deliveryPersonName: null,
             deliveryPersonMobile: null,
           });
         } else if (data.orderUpdate.orderStatus) {
           onOrderStateChange({
             id: activeOrder.id,
             status: data.orderUpdate.orderStatus,
+            deliveryPersonName: activeOrder.deliveryPersonName,
             deliveryPersonMobile: data.orderUpdate.deliveryPersonMobile || null,
           });
         }

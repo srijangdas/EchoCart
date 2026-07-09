@@ -61,7 +61,7 @@ public class OrderController {
         return orderService.deliverOrder(orderId);
     }
 
-    @GetMapping("/{orderId)/status")
+    @GetMapping("/{orderId}/status")
     public OrderStatusResponse getOrderStatus(@PathVariable UUID orderId){
         return orderService.orderStatus(orderId);
     }

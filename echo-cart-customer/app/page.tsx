@@ -14,18 +14,21 @@ type Message = {
   text: string;
 };
 
+type CartState = {
+  orderJson: {
+    itemList: Array<{ name: string; price: number; quantity: number }>;
+  };
+  estimatedPrice: number;
+  checkoutRequested?: boolean;
+};
+
 type PersistedHomeState = {
   messages: Message[];
-  cart: {
-    orderJson: {
-      itemList: Array<{ name: string; price: number; quantity: number }>;
-    };
-    estimatedPrice: number;
-    checkoutRequested?: boolean;
-  };
+  cart: CartState;
   activeOrder: {
     id: string | null;
     status: string | null;
+    deliveryPersonName: string | null;
     deliveryPersonMobile: string | null;
   };
 };
@@ -39,7 +42,7 @@ const defaultMessages: Message[] = [
   },
 ];
 
-const defaultCart = {
+const defaultCart: CartState = {
   orderJson: { itemList: [] },
   estimatedPrice: 0,
 };
@@ -47,6 +50,7 @@ const defaultCart = {
 const defaultActiveOrder = {
   id: null as string | null,
   status: null as string | null,
+  deliveryPersonName: null as string | null,
   deliveryPersonMobile: null as string | null,
 };
 
@@ -69,11 +73,12 @@ export default function Home() {
 
   const [messages, setMessages] = useState<Message[]>(defaultMessages);
 
-  const [cart, setCart] = useState(defaultCart);
+  const [cart, setCart] = useState<CartState>(defaultCart);
 
   const [activeOrder, setActiveOrder] = useState(defaultActiveOrder);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const lastAnnouncedStatusRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -112,6 +117,133 @@ export default function Home() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const getDriverDetails = (payload: any) => {
+    const driver =
+      payload?.driver ||
+      payload?.deliveryPerson ||
+      payload?.deliveryMan ||
+      payload?.courier ||
+      {};
+    const deliveryPersonName =
+      payload?.deliveryPersonName ||
+      payload?.deliveryManName ||
+      payload?.driverName ||
+      driver?.name ||
+      driver?.fullName ||
+      null;
+    const deliveryPersonMobile =
+      payload?.deliveryPersonMobile ||
+      payload?.deliveryManMobile ||
+      payload?.driverMobile ||
+      driver?.mobile ||
+      driver?.phone ||
+      driver?.phoneNumber ||
+      null;
+
+    return { deliveryPersonName, deliveryPersonMobile };
+  };
+
+  const getStatusMessage = (status: string | null, mobile: string | null) => {
+    const normalized = (status || "PENDING").toUpperCase();
+
+    switch (normalized) {
+      case "ACCEPTED":
+        return "Your order has been accepted and is being prepared.";
+      case "SHOPPING":
+        return mobile
+          ? `Your delivery person is shopping for your order. You can call them at ${mobile}.`
+          : "Your delivery person is shopping for your order.";
+      case "IN_TRANSIT":
+        return mobile
+          ? `Your order is on the way. You can call your delivery person at ${mobile}.`
+          : "Your order is on the way.";
+      case "DELIVERED":
+        return "Your order has been delivered. Order update mode is now closed.";
+      case "CANCELLED":
+        return "Your order was cancelled. You can place a new order whenever you are ready.";
+      default:
+        return "Your order is still pending. We are waiting for confirmation.";
+    }
+  };
+
+  const pollOrderStatus = async () => {
+    if (!activeOrder.id) return;
+
+    const { token } = getTokens();
+    if (!token) return;
+
+    try {
+      const response = await fetch(
+        `https://api.echocart.in/api/orders/${activeOrder.id}/status`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (!response.ok) return;
+
+      const payload = await response.json().catch(() => null);
+      const nextStatus = (
+        payload?.status ||
+        activeOrder.status ||
+        "PENDING"
+      ).toUpperCase();
+      const driverDetails = getDriverDetails(payload);
+
+      setActiveOrder((prev) => {
+        const updated = {
+          ...prev,
+          id: prev.id,
+          status: nextStatus,
+          deliveryPersonName:
+            driverDetails.deliveryPersonName || prev.deliveryPersonName,
+          deliveryPersonMobile:
+            driverDetails.deliveryPersonMobile || prev.deliveryPersonMobile,
+        };
+
+        if (nextStatus === "DELIVERED" || nextStatus === "CANCELLED") {
+          return {
+            id: null,
+            status: null,
+            deliveryPersonName: null,
+            deliveryPersonMobile: null,
+          };
+        }
+
+        return updated;
+      });
+
+      if (nextStatus !== lastAnnouncedStatusRef.current) {
+        const message = getStatusMessage(
+          nextStatus,
+          driverDetails.deliveryPersonMobile ||
+            activeOrder.deliveryPersonMobile,
+        );
+        handleNewSystemMessage(message);
+        lastAnnouncedStatusRef.current = nextStatus;
+      }
+    } catch (error) {
+      console.error("Order status polling failed:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (!activeOrder.id) {
+      lastAnnouncedStatusRef.current = null;
+      return;
+    }
+
+    void pollOrderStatus();
+    const intervalId = window.setInterval(() => {
+      void pollOrderStatus();
+    }, 10000);
+
+    return () => window.clearInterval(intervalId);
+  }, [activeOrder.id]);
 
   const handleNewUserMessage = (text: string) => {
     setMessages((prev) => [
@@ -175,10 +307,12 @@ export default function Home() {
 
       // Success handling
       handleNewSystemMessage("Your order has been placed successfully!");
+      const driverDetails = getDriverDetails(payload);
       setActiveOrder({
         id: orderId,
         status,
-        deliveryPersonMobile: payload?.deliveryPersonMobile || null,
+        deliveryPersonName: driverDetails.deliveryPersonName,
+        deliveryPersonMobile: driverDetails.deliveryPersonMobile,
       });
 
       // Clear the cart back to empty after a successful checkout
@@ -256,6 +390,27 @@ export default function Home() {
               <p className="text-lg leading-relaxed">{msg.text}</p>
             </div>
           ))}
+          {activeOrder.id && (
+            <div className="p-4 rounded-2xl border border-brand-primary/40 bg-brand-surface/80 text-sm text-brand-text-muted">
+              <p className="text-xs uppercase tracking-[0.2em] text-brand-primary mb-1">
+                Order update mode
+              </p>
+              <p className="font-semibold text-white">
+                Status: {activeOrder.status || "Checking..."}
+              </p>
+              {activeOrder.deliveryPersonName && (
+                <p className="mt-1">Driver: {activeOrder.deliveryPersonName}</p>
+              )}
+              {activeOrder.deliveryPersonMobile && (
+                <a
+                  href={`tel:${activeOrder.deliveryPersonMobile}`}
+                  className="inline-flex mt-3 px-3 py-2 rounded-lg bg-brand-primary text-brand-text-on-primary font-medium"
+                >
+                  Call driver
+                </a>
+              )}
+            </div>
+          )}
           <div ref={chatEndRef} />
         </main>
 
