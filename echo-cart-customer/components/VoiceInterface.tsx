@@ -89,7 +89,18 @@ export default function VoiceInterface({
       // 2. Pass the fresh, LLM-updated cart object back up to the parent layout state
       if (data.updatedCart) {
         onCartUpdate(data.updatedCart);
-        onNewSystemMessage(`Updated cart total: ₹${data.updatedCart.estimatedPrice}`);
+        
+        if (data.updatedCart.checkoutRequested) {
+          onNewSystemMessage("Placing your order now.");
+        } else {
+          const items = data.updatedCart.orderJson?.itemList || [];
+          if (items.length > 0) {
+            const itemSummary = items.map((i: any) => `${i.quantity} ${i.name}`).join(', ');
+            onNewSystemMessage(`Cart now contains: ${itemSummary}. Total is ₹${data.updatedCart.estimatedPrice}.`);
+          } else {
+            onNewSystemMessage("Your cart is now empty.");
+          }
+        }
       }
 
     } catch (error) {

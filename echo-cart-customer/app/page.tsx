@@ -51,22 +51,56 @@ export default function Home() {
 
   const handleNewSystemMessage = (text: string) => {
     setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'ai', text }]);
-    // Speak the AI's response aloud
     announce(text);
   };
 
   const handleCartUpdate = (updatedCart: any) => {
+    // Update the visual cart first
     setCart(updatedCart);
+    
+    // If the AI detected a checkout command, automatically fire the checkout sequence
+    if (updatedCart.checkoutRequested) {
+      handleCheckout();
+    }
   };
 
-  const handleCheckout = () => {
-    alert("This will send a final stateless POST to /api/orders:\n" + JSON.stringify(cart, null, 2));
+  const handleCheckout = async () => {
+    try {
+      // Announce to screen readers that processing has started
+      announce("Sending order to server...");
+      
+      const { token } = getTokens();
+
+      const response = await fetch('https://api.echocart.in/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'token': token || '' // The exact header your friend's schema requires
+        },
+        body: JSON.stringify(cart)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server responded with status: ${response.status}`);
+      }
+
+      // Success handling
+      handleNewSystemMessage("Your order has been placed successfully!");
+      
+      // Clear the cart back to empty after a successful checkout
+      setCart({ orderJson: { itemList: [] }, estimatedPrice: 0 });
+
+    } catch (error) {
+      console.error("Checkout Error:", error);
+      handleNewSystemMessage("There was an issue connecting to the server to place your order.");
+    }
   };
 
   return (
-    <div className="flex flex-col min-h-screen max-w-md mx-auto border-x border-brand-border bg-brand-bg text-white">
+    <div className="flex flex-col h-screen max-w-md mx-auto border-x border-brand-border bg-brand-bg text-white overflow-hidden">
       
-      <header className="p-6 border-b border-brand-border bg-brand-surface flex justify-between items-center" role="banner">
+      {/* Header */}
+      <header className="p-6 border-b border-brand-border bg-brand-surface flex justify-between items-center z-10" role="banner">
         <div>
           <h1 className="text-3xl font-extrabold tracking-wide text-brand-primary">EchoCart</h1>
           <p className="text-sm text-brand-text-muted mt-1 font-medium" aria-live="polite">
@@ -85,6 +119,7 @@ export default function Home() {
         </Link>
       </header>
 
+      {/* Main Chat Area */}
       <main className="grow p-6 overflow-y-auto space-y-6" role="log" aria-live="polite">
         {messages.map((msg) => (
           <div 
@@ -104,25 +139,17 @@ export default function Home() {
         <div ref={chatEndRef} />
       </main>
 
-      {cart.orderJson.itemList.length > 0 && (
-        <div className="p-4 bg-brand-bg">
-          <button 
-            onClick={handleCheckout}
-            className="w-full py-4 bg-green-600 text-white font-bold rounded hover:bg-green-500 transition-colors"
-          >
-            Place Order (₹{cart.estimatedPrice})
-          </button>
-        </div>
-      )}
-
-      <footer className="sticky bottom-0 bg-brand-bg">
-        <VoiceInterface 
-          currentCart={cart}
-          onCartUpdate={handleCartUpdate}
-          onNewUserMessage={handleNewUserMessage}
-          onNewSystemMessage={handleNewSystemMessage}
-        />
-      </footer>
+      {/* Sticky Bottom Action Panel */}
+      <div className="mt-auto border-t border-brand-border bg-brand-bg z-10">
+        <footer>
+          <VoiceInterface 
+            currentCart={cart}
+            onCartUpdate={handleCartUpdate}
+            onNewUserMessage={handleNewUserMessage}
+            onNewSystemMessage={handleNewSystemMessage}
+          />
+        </footer>
+      </div>
       
     </div>
   );

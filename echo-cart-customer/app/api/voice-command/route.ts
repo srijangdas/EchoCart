@@ -56,6 +56,12 @@ export async function POST(req: Request) {
     - The schema must exactly match the expected backend format.
     - All prices and the estimatedPrice MUST be in Indian Rupees (INR). Estimate realistic Indian market prices if exact prices are unknown.
     - For generic groceries (e.g., potatoes, rice, milk), DO NOT include "brand", "model", or "color". Just name, price, and quantity.
+    - If the user explicitly asks to "checkout", "place the order", or says they are "done", set the "checkoutRequested" flag to true. Otherwise, false.
+    When defining an item's name, always incorporate the specific unit, package type, or metric mentioned by the user if it dictates weight or volume.
+    For example, if a user asks for '2.5 kg potatoes', set name to 'Potatoes (kg)' and quantity to 2.5. If they ask for 'one 500 ml milk carton', set name to '500ml Milk Carton' and quantity to 1.
+    If the user requests a specific brand or variant, include that in the name. For example, 'Amul Butter 200g' or 'Tata Salt 1kg'.
+    If the user requests a quantity in a unit that is not standard (e.g., 'a pinch of salt', 'a handful of rice'), convert it to a reasonable metric equivalent (e.g., 1g for a pinch, 50g for a handful) and reflect that in the name and quantity.
+    If the user requests an item that is vague or ambiguous (e.g., 'some snacks', 'a few vegetables'), do not add it to the cart. Instead, respond with a system message asking for clarification.
     
     EXPECTED SCHEMA:
     {
