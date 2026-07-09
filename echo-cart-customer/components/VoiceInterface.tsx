@@ -1,91 +1,125 @@
-'use client';
+'use react';
 
 import React, { useState, useRef } from 'react';
-import { useAccessibility } from '../context/AccessibilityContext';
 
-export default function VoiceInterface() {
-    const { announce } = useAccessibility();
-    const [isRecording, setIsRecording] = useState(false);
+interface VoiceInterfaceProps {
+  currentCart: any;
+  onCartUpdate: (updatedCart: any) => void;
+  onNewUserMessage: (text: string) => void;
+  onNewSystemMessage: (text: string) => void;
+}
 
-    // Refs to hold the recording instance and the data between renders
-    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-    const audioChunksRef = useRef<Blob[]>([]);
+export default function VoiceInterface({ 
+  currentCart, 
+  onCartUpdate, 
+  onNewUserMessage, 
+  onNewSystemMessage 
+}: VoiceInterfaceProps) {
+  const [isRecording, setIsRecording] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
-    const startRecording = async () => {
-        try {
-            // Request microphone access from the OS/Browser
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const startRecording = async () => {
+    try {
+      audioChunksRef.current = [];
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // WebM is widely supported for audio recording in browsers
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mediaRecorderRef.current = mediaRecorder;
 
-            const mediaRecorder = new MediaRecorder(stream);
-            mediaRecorderRef.current = mediaRecorder;
-            audioChunksRef.current = [];
-
-            // Collect data chunks as the user speaks
-            mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    audioChunksRef.current.push(event.data);
-                }
-            };
-
-            // When the button is released, package the audio
-            mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-                announce('Processing voice command.');
-                stream.getTracks().forEach(track => track.stop());
-
-                // --- NEW CODE: Send the file to our Next.js API ---
-                const formData = new FormData();
-                formData.append('audio', audioBlob, 'command.wav');
-
-                try {
-                    const response = await fetch('/api/voice-command', {
-                        method: 'POST',
-                        body: formData,
-                    });
-                    const data = await response.json();
-
-                    if (data.success) {
-                        announce(data.message);
-                    } else {
-                        announce('Error understanding command.');
-                    }
-                } catch (error) {
-                    announce('Network error. Failed to reach server.');
-                }
-            };
-
-            // Start recording
-            mediaRecorder.start();
-            setIsRecording(true);
-            announce('Listening. Speak your request now.');
-
-        } catch (err) {
-            console.error("Microphone error:", err);
-            announce('Microphone access denied or unavailable. Please check your browser permissions.');
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
         }
-    };
+      };
 
-    const stopRecording = () => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-            mediaRecorderRef.current.stop();
-            setIsRecording(false);
-        }
-    };
+      mediaRecorder.onstop = async () => {
+        // Stop all audio track streams to turn off the hardware microphone light
+        stream.getTracks().forEach(track => track.stop());
+        
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        await sendAudioToBackend(audioBlob);
+      };
 
-    return (
-        <button
-            onMouseDown={startRecording}
-            onMouseUp={stopRecording}
-            onTouchStart={startRecording}
-            onTouchEnd={stopRecording}
-            className={`w-full py-12 text-2xl font-bold uppercase border-4 focus:outline-none focus:ring-4 focus:ring-rose-400 transition-colors ${isRecording
-                    ? 'bg-red-600 border-red-400 animate-pulse text-white shadow-[0_0_20px_rgba(239,68,68,0.5)]'
-                    : 'bg-black border-rose-500 text-rose-100 active:bg-zinc-900'
-                }`}
-            aria-label={isRecording ? "Listening. Release to send command." : "Hold to talk. Say an item to add to your cart."}
-            style={{ touchAction: 'none', userSelect: 'none' }}
-        >
-            {isRecording ? 'Listening...' : 'Hold to Speak'}
-        </button>
-    );
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Microphone access denied or unsupported:", err);
+      onNewSystemMessage("Could not access microphone. Please check permissions.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const sendAudioToBackend = async (audioBlob: Blob) => {
+    setIsLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioBlob);
+      // Pass the current state of the cart as a clean string stringified JSON
+      formData.append('currentCart', JSON.stringify(currentCart));
+
+      const response = await fetch('/api/voice-command', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        // Attempt to parse the exact JSON error our backend sent
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Backend Error Details:", errorData);
+        throw new Error(errorData.error || `HTTP ${response.status} Error`);
+      }
+
+      const data = await response.json();
+      
+      // 1. Post the text version of what the user said to the chat UI
+      if (data.transcript) {
+        onNewUserMessage(data.transcript);
+      }
+      
+      // 2. Pass the fresh, LLM-updated cart object back up to the parent layout state
+      if (data.updatedCart) {
+        onCartUpdate(data.updatedCart);
+        onNewSystemMessage(`Updated cart total: ₹${data.updatedCart.estimatedPrice}`);
+      }
+
+    } catch (error) {
+      console.error("Error processing voice routing:", error);
+      onNewSystemMessage("Sorry, I had trouble parsing that voice command.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="w-full p-4 bg-brand-surface border-t border-brand-border">
+      <button
+        onMouseDown={startRecording}
+        onMouseUp={stopRecording}
+        onTouchStart={startRecording}
+        onTouchEnd={stopRecording}
+        disabled={isLoading}
+        className={`w-full py-12 text-2xl font-bold uppercase border-4 focus:outline-none focus:ring-4 focus:ring-brand-primary/50 transition-colors ${
+          isLoading
+            ? 'bg-brand-surface border-brand-border text-brand-text-muted cursor-not-allowed'
+            : isRecording
+            ? 'bg-brand-alert border-brand-alert animate-pulse text-white shadow-[0_0_20px_var(--color-brand-alert)]'
+            : 'bg-brand-bg border-brand-primary text-brand-text-on-primary active:bg-brand-surface'
+        }`}
+        aria-label={isRecording ? "Listening. Release to send command." : "Hold to talk."}
+        style={{ touchAction: 'none', userSelect: 'none' }}
+      >
+        {isLoading ? 'Processing...' : isRecording ? 'Listening...' : 'Hold to Speak'}
+      </button>
+    </div>
+  );
 }

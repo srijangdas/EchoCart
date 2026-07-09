@@ -100,53 +100,53 @@ export default function Profile() {
   };
 
   if (loading) {
-    return <div className="min-h-screen bg-black text-white flex items-center justify-center">Loading...</div>;
+    return <div className="min-h-screen bg-brand-bg text-white flex items-center justify-center">Loading...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 flex flex-col items-center">
-      <div className="w-full max-w-md bg-zinc-900 p-8 rounded-xl border border-zinc-800 shadow-2xl relative">
+    <div className="min-h-screen bg-brand-bg text-white p-6 flex flex-col items-center">
+      <div className="w-full max-w-md bg-brand-surface p-8 rounded-xl border border-brand-border shadow-2xl relative">
         
         {/* Navigation / Header */}
         <div className="flex justify-between items-center mb-6">
-          <Link href="/" className="text-zinc-400 hover:text-white transition-colors">
+          <Link href="/" className="text-brand-text-muted hover:text-white transition-colors">
             &larr; Back to App
           </Link>
           <button 
             onClick={handleLogout}
-            className="px-4 py-2 bg-zinc-800 text-rose-400 font-semibold rounded hover:bg-zinc-700 transition-colors"
+            className="px-4 py-2 bg-brand-border text-rose-400 font-semibold rounded hover:bg-brand-border transition-colors"
           >
             Log Out
           </button>
         </div>
 
-        <h1 className="text-3xl font-bold mb-6 text-rose-500">Account Details</h1>
+        <h1 className="text-3xl font-bold mb-6 text-brand-primary">Account Details</h1>
 
         <form onSubmit={handleSave} className="space-y-5">
           <div>
             <label className="block text-sm font-medium mb-1">Full Name</label>
-            <input type="text" name="name" value={formData.name} onChange={handleChange} className="w-full p-3 bg-black border border-zinc-700 rounded focus:border-rose-500 outline-none" required />
+            <input type="text" name="name" value={formData.name} onChange={handleChange} className="w-full p-3 bg-brand-bg border border-brand-border rounded focus:border-brand-primary outline-none" required />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Street Address</label>
-            <input type="text" name="address" value={formData.address} onChange={handleChange} className="w-full p-3 bg-black border border-zinc-700 rounded focus:border-rose-500 outline-none" required />
+            <input type="text" name="address" value={formData.address} onChange={handleChange} className="w-full p-3 bg-brand-bg border border-brand-border rounded focus:border-brand-primary outline-none" required />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">City</label>
-              <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full p-3 bg-black border border-zinc-700 rounded focus:border-rose-500 outline-none" required />
+              <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full p-3 bg-brand-bg border border-brand-border rounded focus:border-brand-primary outline-none" required />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">State</label>
-              <input type="text" name="state" value={formData.state} onChange={handleChange} className="w-full p-3 bg-black border border-zinc-700 rounded focus:border-rose-500 outline-none" required />
+              <input type="text" name="state" value={formData.state} onChange={handleChange} className="w-full p-3 bg-brand-bg border border-brand-border rounded focus:border-brand-primary outline-none" required />
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Pincode</label>
-            <input type="text" name="pincode" value={formData.pincode} onChange={handleChange} className="w-full p-3 bg-black border border-zinc-700 rounded focus:border-rose-500 outline-none" required />
+            <input type="text" name="pincode" value={formData.pincode} onChange={handleChange} className="w-full p-3 bg-brand-bg border border-brand-border rounded focus:border-brand-primary outline-none" required />
           </div>
 
-          <button type="submit" disabled={saving} className="w-full mt-6 py-4 bg-rose-600 text-white font-bold rounded hover:bg-rose-500 disabled:opacity-50 transition-colors">
+          <button type="submit" disabled={saving} className="w-full mt-6 py-4 bg-brand-primary text-white font-bold rounded hover:bg-brand-primary-hover disabled:opacity-50 transition-colors">
             {saving ? 'Saving...' : 'Update Profile'}
           </button>
         </form>

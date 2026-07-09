@@ -78,12 +78,12 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 flex flex-col justify-center items-center">
-      <div className="w-full max-w-md bg-zinc-900 p-8 rounded-xl border border-zinc-800 shadow-2xl">
-        <h1 className="text-3xl font-bold mb-2 text-rose-500">
+    <div className="min-h-screen bg-brand-bg text-white p-6 flex flex-col justify-center items-center">
+      <div className="w-full max-w-md bg-brand-surface p-8 rounded-xl border border-brand-border shadow-2xl">
+        <h1 className="text-3xl font-bold mb-2 text-brand-primary">
           {isRegistering ? 'Create Account' : 'Welcome Back'}
         </h1>
-        <p className="text-zinc-400 mb-6">
+        <p className="text-brand-text-muted mb-6">
           {isRegistering ? 'Set up an account to manage deliveries.' : 'Log in to your account.'}
         </p>
 
@@ -94,26 +94,26 @@ export default function Login() {
             <label className="block text-sm font-medium mb-1">Phone Number</label>
             <input
               type="tel" name="phoneNo" value={formData.phoneNo} onChange={handleChange}
-              className="w-full p-3 bg-black border border-zinc-700 rounded focus:border-rose-500 outline-none" required
+              className="w-full p-3 bg-brand-bg border border-brand-border rounded focus:border-brand-primary outline-none" required
             />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Password</label>
             <input
               type="password" name="password" value={formData.password} onChange={handleChange}
-              className="w-full p-3 bg-black border border-zinc-700 rounded focus:border-rose-500 outline-none" required
+              className="w-full p-3 bg-brand-bg border border-brand-border rounded focus:border-brand-primary outline-none" required
             />
           </div>
           <button
             type="submit" disabled={loading}
-            className="w-full py-4 bg-rose-600 text-white font-bold rounded hover:bg-rose-500 disabled:opacity-50"
+            className="w-full py-4 bg-brand-primary text-white font-bold rounded hover:bg-brand-primary-hover disabled:opacity-50"
           >
             {loading ? 'Processing...' : (isRegistering ? 'Sign Up' : 'Log In')}
           </button>
         </form>
 
-        <div className="mt-6 text-center border-t border-zinc-800 pt-6">
-          <button onClick={() => setIsRegistering(!isRegistering)} className="text-zinc-400 hover:text-white">
+        <div className="mt-6 text-center border-t border-brand-border pt-6">
+          <button onClick={() => setIsRegistering(!isRegistering)} className="text-brand-text-muted hover:text-white">
             {isRegistering ? 'Already have an account? Log in' : "Don't have an account? Sign up"}
           </button>
         </div>
