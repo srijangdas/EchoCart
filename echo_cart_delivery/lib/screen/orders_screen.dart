@@ -11,7 +11,9 @@ import '../services/order_service.dart';
 import '../services/secure_storage_service.dart';
 
 class OrdersScreen extends StatefulWidget {
-  const OrdersScreen({super.key});
+  final void Function(OrderModel order)? onOrderAccepted;
+
+  const OrdersScreen({super.key, this.onOrderAccepted});
 
   @override
   State<OrdersScreen> createState() => _OrdersScreenState();
@@ -61,6 +63,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
       // Clear the available orders list so UI placeholder is empty
       final acceptedOrder = order;
       setState(() => _orders = []);
+      // If parent provided a handler, call it so AppMainScreen can show
+      // the active order in the bottom nav instead of replacing the route.
+      if (widget.onOrderAccepted != null) {
+        widget.onOrderAccepted!(acceptedOrder);
+        return;
+      }
+
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(

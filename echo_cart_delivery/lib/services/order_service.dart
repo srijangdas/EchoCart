@@ -191,10 +191,12 @@ class OrderService {
   static OrderStatus _mapOrderStatus(String s) {
     final lower = s.toLowerCase();
     if (lower.contains('accept')) return OrderStatus.accepted;
-    if (lower.contains('complete') || lower.contains('delivered'))
+    if (lower.contains('complete') || lower.contains('delivered')) {
       return OrderStatus.completed;
-    if (lower.contains('reject') || lower.contains('rejected'))
+    }
+    if (lower.contains('reject') || lower.contains('rejected')) {
       return OrderStatus.rejected;
+    }
     return OrderStatus.pending;
   }
 

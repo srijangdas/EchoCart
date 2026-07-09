@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../utils/colors.dart';
+import '../models/order_model.dart';
 import 'orders_screen.dart';
+import 'order_detail_screen.dart';
 import 'account_screen.dart';
 
 class AppMainScreen extends StatefulWidget {
@@ -13,8 +15,22 @@ class AppMainScreen extends StatefulWidget {
 
 class _AppMainScreenState extends State<AppMainScreen> {
   int _selectedIndex = 0;
+  OrderModel? _activeOrder;
 
-  final List<Widget> _pages = [OrdersScreen(), AccountScreen()];
+  List<Widget> get _pages => [
+    OrdersScreen(onOrderAccepted: _handleOrderAccepted),
+    _activeOrder != null
+        ? OrderDetailScreen(order: _activeOrder!)
+        : const Center(child: Text('No active order')),
+    const AccountScreen(),
+  ];
+
+  void _handleOrderAccepted(OrderModel order) {
+    setState(() {
+      _activeOrder = order;
+      _selectedIndex = 1; // Active Order tab
+    });
+  }
 
   Widget _navIcon(IconData iconData, bool active) {
     return Container(
@@ -37,10 +53,10 @@ class _AppMainScreenState extends State<AppMainScreen> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withAlpha(60), 
-              offset: Offset(0, 5), 
-              blurRadius: 10.0, 
-              spreadRadius: 2.0, 
+              color: Colors.black.withAlpha(60),
+              offset: Offset(0, 5),
+              blurRadius: 10.0,
+              spreadRadius: 2.0,
             ),
           ],
         ),
@@ -65,6 +81,11 @@ class _AppMainScreenState extends State<AppMainScreen> {
                 icon: _navIcon(Icons.list_alt_outlined, false),
                 activeIcon: _navIcon(Icons.list_alt, true),
                 label: 'Orders',
+              ),
+              BottomNavigationBarItem(
+                icon: _navIcon(Icons.delivery_dining_outlined, false),
+                activeIcon: _navIcon(Icons.delivery_dining, true),
+                label: 'Active',
               ),
               BottomNavigationBarItem(
                 icon: _navIcon(Icons.person_outline, false),
