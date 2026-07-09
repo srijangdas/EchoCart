@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { isTokenExpired } from "./utils/isTokenExpired";
 
-export const runtime = "experimental-edge";
-
 const PUBLIC_PATHS = ["/login", "/register"];
 const AUTH_COOKIE = "token";
 const REFRESH_COOKIE = "refreshToken";
@@ -16,7 +14,7 @@ const cookieOptions = {
   secure: false,
 };
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (
@@ -88,7 +86,6 @@ export async function middleware(request: NextRequest) {
 
     return NextResponse.next();
   } catch (error) {
-    // Edge Runtime compatibility error - allow request to proceed
     console.error("Middleware error:", error);
     return NextResponse.next();
   }
