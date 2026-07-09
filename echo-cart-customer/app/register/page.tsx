@@ -91,7 +91,9 @@ export default function Register() {
   return (
     <div className="min-h-screen bg-brand-bg text-white p-6 flex flex-col justify-center items-center">
       <div className="w-full max-w-md bg-brand-surface p-8 rounded-xl border border-brand-border shadow-2xl">
-        <h1 className="text-3xl font-bold mb-2 text-brand-primary">Setup Profile</h1>
+        <h1 className="text-3xl font-bold mb-2 text-brand-primary">
+          Setup Profile
+        </h1>
         <p className="text-brand-text-muted mb-8">
           Enter the delivery details for the primary user.
         </p>

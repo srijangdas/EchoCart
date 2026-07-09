@@ -35,6 +35,12 @@ public class ProfileController {
         return profileService.getUser();
     }
 
+    @Parameter(name="token", in = ParameterIn.HEADER, required = true)
+    @PutMapping("/customer")
+    public CustomerProfileResponse updateUser(@RequestBody CustomerProfileRequest request){
+        return profileService.updateProfile(request);
+    }
+
     @Operation(summary = "Add Delivery Partner profile details")
     @Parameter(name="token", in = ParameterIn.HEADER, required = true)
     @PostMapping("/delivery")
