@@ -15,5 +15,5 @@ public interface OrderRepo extends JpaRepository<Order, UUID> {
     Optional<Order> findById(@NonNull UUID orderId);
     List<Order> findByCustomerId(UUID customerId);
     List<Order> findByPartnerId(UUID partnerId);
-    List<Order> findByOrderStatus(OrderStatus status);
+    List<Order> findByOrderStatusAndPartnerIdIsNull(OrderStatus orderStatus);
 }

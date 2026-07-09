@@ -24,6 +24,8 @@ public class CustomerProfile {
 
     private String address;
 
+    private String coordinates;
+
     private String city;
 
     private String state;

@@ -15,7 +15,8 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name="Profile")
 @RestController
 @RequestMapping("api/profile")
-@CrossOrigin("*")
+@CrossOrigin(origins="*", allowedHeaders = {"Authorization", "Content-Type", "X-Device-Id"},
+        exposedHeaders = {"Authorization"})
 @RequiredArgsConstructor
 public class ProfileController {
     private final ProfileService profileService;

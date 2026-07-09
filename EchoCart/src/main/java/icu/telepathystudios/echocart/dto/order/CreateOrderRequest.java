@@ -11,20 +11,25 @@ import tools.jackson.databind.node.ObjectNode;
         type = "object",
         example = """
         {
-        "orderJson": {
-          "items": [
-            {
-              "id": 1,
-              "name": "Potato",
-              "weight": "2kg",
-              "status": "PENDING"
-            }
-          ],
-          "deliveryAddress": "Salt Lake, Kolkata",
-          "specialInstructions": "Fresh vegetables only",
-          "source": "voice"
-        },
-        "estimatedPrice": 69.99
+                "orderJson": {
+                            "itemList": [
+                                {
+                                    "name": "Mechanical Keyboard",
+                                    "brand": "Logitech",
+                                    "color": "Black",
+                                    "price": 85.0,
+                                    "quantity": 1
+                                },
+                                {
+                                    "name": "Wireless Mouse",
+                                    "brand": "Razer",
+                                    "model": "DeathAdder",
+                                    "price": 85.0,
+                                    "quantity": 1
+                                }
+                            ]
+                        },
+                        "estimatedPrice": 170.0
         }
         """
 )

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:echo_cart_delivery/services/secure_storage_service.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -149,7 +150,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
     setState(() => _loading = true);
 
     try {
-      final token = await _driverService.getToken();
+      final token = await SecureStorageService.getToken();
       if (token == null || token.isEmpty) {
         throw Exception('No auth token found. Please log in again.');
       }

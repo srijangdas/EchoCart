@@ -12,7 +12,16 @@ import java.util.UUID;
 @Setter
 @AllArgsConstructor
 public class OrderResponse {
+
     private UUID orderId;
+
+    private String customerName;
+
+    private String customerNumber;
+
+    private String deliveryLocation;
+
+    private String deliveryCoordinates;
 
     private OrderStatus orderStatus;
 
