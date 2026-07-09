@@ -1,20 +1,20 @@
-import { jwtDecode } from "jwt-decode";
-
-interface JwtPayload {
-  exp: number; // Expiration timestamp in seconds
-}
-
-export function isTokenExpired(token: string | null): boolean {
-  if (!token) return true;
-
+// utils/isTokenExpired.ts
+export function isTokenExpired(token: string): boolean {
   try {
-    const decoded = jwtDecode<JwtPayload>(token);
-    const currentTime = Date.now() / 1000; // Convert milliseconds to seconds
+    const parts = token.split(".");
+    if (parts.length !== 3) return true;
 
-    // If current time is greater than exp time, it's expired
-    return decoded.exp < currentTime;
+    // Decode base64url payload safely in Edge runtime
+    const payload = JSON.parse(
+      Buffer.from(parts[1], "base64").toString("utf-8"),
+    );
+
+    if (!payload.exp) return true;
+
+    // Convert exp (seconds) to milliseconds and compare with current time
+    const currentTime = Date.now();
+    return currentTime >= payload.exp * 1000;
   } catch (error) {
-    // If decoding fails, treat it as an invalid/expired token
-    return true;
+    return true; // Treat malformed tokens as expired
   }
 }
