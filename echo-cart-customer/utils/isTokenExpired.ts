@@ -1,20 +1,23 @@
-import { jwtDecode } from "jwt-decode";
-
-interface JwtPayload {
-  exp: number; // Expiration timestamp in seconds
-}
-
-export function isTokenExpired(token: string | null): boolean {
-  if (!token) return true;
-
+export function isTokenExpired(token: string): boolean {
   try {
-    const decoded = jwtDecode<JwtPayload>(token);
-    const currentTime = Date.now() / 1000; // Convert milliseconds to seconds
+    const parts = token.split(".");
+    if (parts.length !== 3) return true;
 
-    // If current time is greater than exp time, it's expired
-    return decoded.exp < currentTime;
+    // Decode base64url safely using standard web APIs
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(""),
+    );
+
+    const payload = JSON.parse(jsonPayload);
+    if (!payload.exp) return true;
+
+    return Date.now() >= payload.exp * 1000;
   } catch (error) {
-    // If decoding fails, treat it as an invalid/expired token
     return true;
   }
 }
