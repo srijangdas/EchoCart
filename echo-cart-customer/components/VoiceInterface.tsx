@@ -1,17 +1,28 @@
 "use react";
 
 import React, { useState, useRef } from "react";
+import { getTokens } from "@/utils/api";
+
+interface ActiveOrderState {
+  id: string | null;
+  status: string | null;
+  deliveryPersonMobile: string | null;
+}
 
 interface VoiceInterfaceProps {
   currentCart: any;
+  activeOrder: ActiveOrderState;
   onCartUpdate: (updatedCart: any) => void;
+  onOrderStateChange: (order: ActiveOrderState) => void;
   onNewUserMessage: (text: string) => void;
   onNewSystemMessage: (text: string) => void;
 }
 
 export default function VoiceInterface({
   currentCart,
+  activeOrder,
   onCartUpdate,
+  onOrderStateChange,
   onNewUserMessage,
   onNewSystemMessage,
 }: VoiceInterfaceProps) {
@@ -72,6 +83,13 @@ export default function VoiceInterface({
       formData.append("audio", audioBlob);
       // Pass the current state of the cart as a clean string stringified JSON
       formData.append("currentCart", JSON.stringify(currentCart));
+      formData.append("activeOrderId", activeOrder.id || "");
+      formData.append("activeOrderStatus", activeOrder.status || "");
+
+      const { token } = getTokens();
+      if (token) {
+        formData.append("authToken", token);
+      }
 
       const response = await fetch("/api/voice-command", {
         method: "POST",
@@ -94,6 +112,25 @@ export default function VoiceInterface({
 
       if (data.clarification) {
         onNewSystemMessage(data.clarification);
+        return;
+      }
+
+      if (data.orderUpdate) {
+        onNewSystemMessage(data.orderUpdate.message);
+
+        if (data.orderUpdate.shouldResetActiveOrder) {
+          onOrderStateChange({
+            id: null,
+            status: null,
+            deliveryPersonMobile: null,
+          });
+        } else if (data.orderUpdate.orderStatus) {
+          onOrderStateChange({
+            id: activeOrder.id,
+            status: data.orderUpdate.orderStatus,
+            deliveryPersonMobile: data.orderUpdate.deliveryPersonMobile || null,
+          });
+        }
         return;
       }
 

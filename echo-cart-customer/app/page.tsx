@@ -14,6 +14,42 @@ type Message = {
   text: string;
 };
 
+type PersistedHomeState = {
+  messages: Message[];
+  cart: {
+    orderJson: {
+      itemList: Array<{ name: string; price: number; quantity: number }>;
+    };
+    estimatedPrice: number;
+    checkoutRequested?: boolean;
+  };
+  activeOrder: {
+    id: string | null;
+    status: string | null;
+    deliveryPersonMobile: string | null;
+  };
+};
+
+const STORAGE_KEY = "echo-cart-home-state";
+const defaultMessages: Message[] = [
+  {
+    id: "1",
+    role: "ai",
+    text: "EchoCart active. Hold the button below and tell me what you need to add to your order.",
+  },
+];
+
+const defaultCart = {
+  orderJson: { itemList: [] },
+  estimatedPrice: 0,
+};
+
+const defaultActiveOrder = {
+  id: null as string | null,
+  status: null as string | null,
+  deliveryPersonMobile: null as string | null,
+};
+
 export default function Home() {
   const router = useRouter();
   const { announce } = useAccessibility();
@@ -31,20 +67,47 @@ export default function Home() {
     announce("EchoCart AI is ready. Hold the bottom button to speak.");
   }, [announce]);
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "ai",
-      text: "EchoCart active. Hold the button below and tell me what you need to add to your order.",
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(defaultMessages);
 
-  const [cart, setCart] = useState({
-    orderJson: { itemList: [] },
-    estimatedPrice: 0,
-  });
+  const [cart, setCart] = useState(defaultCart);
+
+  const [activeOrder, setActiveOrder] = useState(defaultActiveOrder);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (!stored) return;
+
+      const parsed = JSON.parse(stored) as PersistedHomeState;
+      if (parsed.messages?.length) {
+        setMessages(parsed.messages);
+      }
+      if (parsed.cart) {
+        setCart(parsed.cart);
+      }
+      if (parsed.activeOrder) {
+        setActiveOrder(parsed.activeOrder);
+      }
+    } catch (error) {
+      console.error("Failed to restore saved EchoCart state:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const payload: PersistedHomeState = {
+      messages,
+      cart,
+      activeOrder,
+    };
+
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  }, [messages, cart, activeOrder]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -96,8 +159,27 @@ export default function Home() {
         throw new Error(`Server responded with status: ${response.status}`);
       }
 
+      const payload = await response.json().catch(() => null);
+      const orderId =
+        payload?.id ||
+        payload?.orderId ||
+        payload?.order?.id ||
+        payload?.data?.id ||
+        payload?.data?.orderId ||
+        null;
+      const status =
+        payload?.status ||
+        payload?.order?.status ||
+        payload?.data?.status ||
+        "PENDING";
+
       // Success handling
       handleNewSystemMessage("Your order has been placed successfully!");
+      setActiveOrder({
+        id: orderId,
+        status,
+        deliveryPersonMobile: payload?.deliveryPersonMobile || null,
+      });
 
       // Clear the cart back to empty after a successful checkout
       setCart({ orderJson: { itemList: [] }, estimatedPrice: 0 });
@@ -182,7 +264,9 @@ export default function Home() {
           <footer>
             <VoiceInterface
               currentCart={cart}
+              activeOrder={activeOrder}
               onCartUpdate={handleCartUpdate}
+              onOrderStateChange={setActiveOrder}
               onNewUserMessage={handleNewUserMessage}
               onNewSystemMessage={handleNewSystemMessage}
             />

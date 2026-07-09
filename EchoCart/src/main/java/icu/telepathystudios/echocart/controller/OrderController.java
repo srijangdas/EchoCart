@@ -2,12 +2,11 @@ package icu.telepathystudios.echocart.controller;
 
 import icu.telepathystudios.echocart.dto.order.CreateOrderRequest;
 import icu.telepathystudios.echocart.dto.order.OrderResponse;
+import icu.telepathystudios.echocart.dto.order.OrderStatusResponse;
 import icu.telepathystudios.echocart.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -60,6 +59,11 @@ public class OrderController {
             @PathVariable UUID orderId
     ){
         return orderService.deliverOrder(orderId);
+    }
+
+    @GetMapping("/{orderId)/status")
+    public OrderStatusResponse getOrderStatus(@PathVariable UUID orderId){
+        return orderService.orderStatus(orderId);
     }
 
 }

@@ -8,6 +8,11 @@ export async function POST(req: Request) {
     const formData = await req.formData();
     const audioFile = formData.get("audio") as Blob;
     const currentCartString = formData.get("currentCart") as string;
+    const activeOrderId = formData.get("activeOrderId") as string | null;
+    const activeOrderStatus = formData.get("activeOrderStatus") as
+      | string
+      | null;
+    const authToken = formData.get("authToken") as string | null;
 
     if (!audioFile) {
       return NextResponse.json(
@@ -61,6 +66,99 @@ export async function POST(req: Request) {
         { error: "Could not understand audio" },
         { status: 400 },
       );
+    }
+
+    if (activeOrderId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let statusPayload: Record<string, any> | null = null;
+      let normalizedStatus = (activeOrderStatus || "PENDING").toUpperCase();
+
+      try {
+        if (authToken) {
+          const statusResponse = await fetch(
+            `https://api.echocart.in/api/orders/${activeOrderId}/status`,
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${authToken}`,
+              },
+            },
+          );
+
+          if (statusResponse.ok) {
+            statusPayload = await statusResponse.json();
+            normalizedStatus = (
+              statusPayload?.status ||
+              activeOrderStatus ||
+              "PENDING"
+            ).toUpperCase();
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch active order status:", error);
+      }
+
+      const deliveryPersonMobile =
+        statusPayload?.deliveryManMobile ||
+        statusPayload?.deliveryPersonMobile ||
+        statusPayload?.driverMobile ||
+        statusPayload?.driver?.phone ||
+        null;
+
+      if (normalizedStatus === "DELIVERED") {
+        return NextResponse.json({
+          transcript: userSpokenText,
+          orderUpdate: {
+            message:
+              "Your order has been delivered. Order tracking mode is now closed, and you can place new orders again.",
+            orderStatus: normalizedStatus,
+            deliveryPersonMobile: null,
+            shouldResetActiveOrder: true,
+          },
+        });
+      }
+
+      if (normalizedStatus === "CANCELLED") {
+        return NextResponse.json({
+          transcript: userSpokenText,
+          orderUpdate: {
+            message:
+              "Your order was cancelled. You can place a new order whenever you are ready.",
+            orderStatus: normalizedStatus,
+            deliveryPersonMobile: null,
+            shouldResetActiveOrder: true,
+          },
+        });
+      }
+
+      const messageByStatus: Record<string, string> = {
+        PENDING:
+          "Your order is still pending. We are waiting for the restaurant or store to confirm it.",
+        ACCEPTED:
+          "Your order has been accepted and is being prepared. I can keep you updated on progress.",
+        SHOPPING:
+          "Your delivery person is currently shopping for your order. You can call them on",
+        IN_TRANSIT:
+          "Your order is on the way. You can call your delivery person on",
+      };
+
+      const baseMessage =
+        messageByStatus[normalizedStatus] ||
+        "I’m tracking your current order and can share updates for it.";
+      const message =
+        normalizedStatus === "SHOPPING" || normalizedStatus === "IN_TRANSIT"
+          ? `${baseMessage} ${deliveryPersonMobile || "the number shared with you"}.`
+          : baseMessage;
+
+      return NextResponse.json({
+        transcript: userSpokenText,
+        orderUpdate: {
+          message,
+          orderStatus: normalizedStatus,
+          deliveryPersonMobile,
+          shouldResetActiveOrder: false,
+        },
+      });
     }
 
     // --- INTENT PARSING: Update the Cart (GPT-4o) ---

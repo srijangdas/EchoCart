@@ -7,6 +7,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @AllArgsConstructor
-public class OrderStatus {
+public class OrderStatusResponse {
     private String status;
+    private String deliveryPhoneNo;
 }
