@@ -119,6 +119,13 @@ export default function VoiceInterface({
       if (data.orderUpdate) {
         onNewSystemMessage(data.orderUpdate.message);
 
+        if (
+          data.orderUpdate.shouldOpenDialer &&
+          activeOrder.deliveryPersonMobile
+        ) {
+          window.location.href = `tel:${activeOrder.deliveryPersonMobile}`;
+        }
+
         if (data.orderUpdate.shouldResetActiveOrder) {
           onOrderStateChange({
             id: null,

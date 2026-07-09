@@ -9,5 +9,6 @@ import lombok.Setter;
 @AllArgsConstructor
 public class OrderStatusResponse {
     private String status;
+    private String deliverName;
     private String deliveryPhoneNo;
 }

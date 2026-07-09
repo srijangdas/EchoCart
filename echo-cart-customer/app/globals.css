@@ -10,3 +10,8 @@
   --color-brand-text-on-primary: #ffffff;
   --color-brand-text-muted: #a1a1aa;
 }
+
+body {
+  height: auto;
+  color: aquamarine;
+}

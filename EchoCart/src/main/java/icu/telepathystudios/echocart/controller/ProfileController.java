@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name="Profile")
@@ -39,6 +40,13 @@ public class ProfileController {
     @PutMapping("/customer")
     public CustomerProfileResponse updateUser(@RequestBody CustomerProfileRequest request){
         return profileService.updateProfile(request);
+    }
+
+    @Parameter(name="token", in = ParameterIn.HEADER, required = true)
+    @PutMapping("/customer/location")
+    public ResponseEntity<String> updateLocation(@RequestBody String coordinates){
+        profileService.updateLocation(coordinates);
+        return ResponseEntity.ok("Updated location");
     }
 
     @Operation(summary = "Add Delivery Partner profile details")

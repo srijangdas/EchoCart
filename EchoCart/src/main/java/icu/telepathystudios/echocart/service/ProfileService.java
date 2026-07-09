@@ -235,4 +235,26 @@ public class ProfileService {
         );
 
     }
+
+    public void updateLocation(String coordinates) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        String phoneNo = auth.getName();
+
+        User user = userRepo.findByPhoneNo(phoneNo).orElseThrow(
+                ()->
+                        new RuntimeException("User not found")
+        );
+
+        if(!user.getRole().equals("USER")){
+            throw new RuntimeException("Customer Allowed Only!");
+        }
+
+        CustomerProfile profile = customerProfileRepo.findById(user.getId())
+                .orElseThrow(() -> new RuntimeException("Profile does not exist"));
+
+        profile.setCoordinates(coordinates);
+
+        customerProfileRepo.save(profile);
+    }
 }

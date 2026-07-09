@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getTokens } from "@/utils/api";
 import Link from "next/link";
@@ -54,6 +55,55 @@ const defaultActiveOrder = {
   deliveryPersonMobile: null as string | null,
 };
 
+const getDriverDetails = (payload: any) => {
+  const driver =
+    payload?.driver ||
+    payload?.deliveryPerson ||
+    payload?.deliveryMan ||
+    payload?.courier ||
+    {};
+  const deliveryPersonName =
+    payload?.deliveryPersonName ||
+    payload?.deliveryManName ||
+    payload?.driverName ||
+    driver?.name ||
+    driver?.fullName ||
+    null;
+  const deliveryPersonMobile =
+    payload?.deliveryPersonMobile ||
+    payload?.deliveryManMobile ||
+    payload?.driverMobile ||
+    driver?.mobile ||
+    driver?.phone ||
+    driver?.phoneNumber ||
+    null;
+
+  return { deliveryPersonName, deliveryPersonMobile };
+};
+
+const getStatusMessage = (status: string | null, mobile: string | null) => {
+  const normalized = (status || "PENDING").toUpperCase();
+
+  switch (normalized) {
+    case "ACCEPTED":
+      return "Your order has been accepted and is being prepared.";
+    case "SHOPPING":
+      return mobile
+        ? `Your delivery person is shopping for your order. You can call them at ${mobile}.`
+        : "Your delivery person is shopping for your order.";
+    case "IN_TRANSIT":
+      return mobile
+        ? `Your order is on the way. You can call your delivery person at ${mobile}.`
+        : "Your order is on the way.";
+    case "DELIVERED":
+      return "Your order has been delivered. Order update mode is now closed.";
+    case "CANCELLED":
+      return "Your order was cancelled. You can place a new order whenever you are ready.";
+    default:
+      return "Your order is still pending. We are waiting for confirmation.";
+  }
+};
+
 export default function Home() {
   const router = useRouter();
   const { announce } = useAccessibility();
@@ -71,36 +121,208 @@ export default function Home() {
     announce("EchoCart AI is ready. Hold the bottom button to speak.");
   }, [announce]);
 
-  const [messages, setMessages] = useState<Message[]>(defaultMessages);
+  const requestLocationPermission = useCallback(async () => {
+    if (typeof window === "undefined" || !navigator.geolocation) return;
 
-  const [cart, setCart] = useState<CartState>(defaultCart);
+    try {
+      const permissionStatus = await navigator.permissions?.query({
+        name: "geolocation" as PermissionName,
+      });
 
-  const [activeOrder, setActiveOrder] = useState(defaultActiveOrder);
+      if (permissionStatus?.state === "denied") return;
 
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const lastAnnouncedStatusRef = useRef<string | null>(null);
+      const position = await new Promise<GeolocationPosition>(
+        (resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0,
+          });
+        },
+      );
+
+      const coordinates = `${position.coords.latitude},${position.coords.longitude}`;
+      const { token } = getTokens();
+
+      if (token) {
+        await fetch("https://api.echocart.in/api/customer/location", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "text/plain",
+            Authorization: `Bearer ${token}`,
+          },
+          body: coordinates,
+        });
+      }
+    } catch (error) {
+      console.error("Location permission or update failed:", error);
+    }
+  }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    void requestLocationPermission();
+  }, [requestLocationPermission]);
+
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (typeof window === "undefined") return defaultMessages;
 
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (!stored) return;
+      if (!stored) return defaultMessages;
 
       const parsed = JSON.parse(stored) as PersistedHomeState;
-      if (parsed.messages?.length) {
-        setMessages(parsed.messages);
-      }
-      if (parsed.cart) {
-        setCart(parsed.cart);
-      }
-      if (parsed.activeOrder) {
-        setActiveOrder(parsed.activeOrder);
-      }
+      return parsed.messages?.length ? parsed.messages : defaultMessages;
     } catch (error) {
-      console.error("Failed to restore saved EchoCart state:", error);
+      console.error("Failed to restore saved messages:", error);
+      return defaultMessages;
     }
-  }, []);
+  });
+
+  const [cart, setCart] = useState<CartState>(() => {
+    if (typeof window === "undefined") return defaultCart;
+
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (!stored) return defaultCart;
+
+      const parsed = JSON.parse(stored) as PersistedHomeState;
+      return parsed.cart || defaultCart;
+    } catch (error) {
+      console.error("Failed to restore saved cart:", error);
+      return defaultCart;
+    }
+  });
+
+  const [activeOrder, setActiveOrder] = useState(() => {
+    if (typeof window === "undefined") return defaultActiveOrder;
+
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (!stored) return defaultActiveOrder;
+
+      const parsed = JSON.parse(stored) as PersistedHomeState;
+      return parsed.activeOrder || defaultActiveOrder;
+    } catch (error) {
+      console.error("Failed to restore saved active order:", error);
+      return defaultActiveOrder;
+    }
+  });
+
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const lastAnnouncedStatusRef = useRef<string | null>(null);
+  const lastAnnouncementKeyRef = useRef<string | null>(null);
+
+  const handleNewSystemMessage = useCallback(
+    (text: string) => {
+      setMessages((prev) => [
+        ...prev,
+        { id: (Date.now() + 1).toString(), role: "ai", text },
+      ]);
+      announce(text);
+    },
+    [announce],
+  );
+
+  const parseCustomerOrder = (data: any) => {
+    const order =
+      data?.order ||
+      data?.orders?.[0] ||
+      data?.data?.order ||
+      data?.data?.orders?.[0] ||
+      data?.latestOrder ||
+      data;
+
+    if (!order) return null;
+
+    const status = (
+      order.status ||
+      order.orderStatus ||
+      order.state ||
+      "PENDING"
+    ).toUpperCase();
+    const orderId = order.id || order.orderId || order.order_id || null;
+    if (!orderId) return null;
+
+    const driverDetails = getDriverDetails(order);
+
+    return {
+      id: orderId,
+      status,
+      deliveryPersonName: driverDetails.deliveryPersonName,
+      deliveryPersonMobile: driverDetails.deliveryPersonMobile,
+    };
+  };
+
+  const restoreActiveOrderFromServer = useCallback(async () => {
+    if (typeof window === "undefined") return;
+
+    const { token } = getTokens();
+    if (!token) return;
+    if (activeOrder.id) return;
+
+    try {
+      const response = await fetch(
+        "https://api.echocart.in/api/orders/customer",
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (!response.ok) return;
+
+      const payload = await response.json().catch(() => null);
+      const activeStatuses = ["PENDING", "ACCEPTED", "SHOPPING", "IN_TRANSIT"];
+
+      const candidates: any[] = [];
+      if (Array.isArray(payload)) {
+        candidates.push(...payload);
+      } else if (payload && typeof payload === "object") {
+        if (Array.isArray(payload.orders)) {
+          candidates.push(...payload.orders);
+        } else if (payload.order) {
+          candidates.push(payload.order);
+        } else if (payload.data && Array.isArray(payload.data.orders)) {
+          candidates.push(...payload.data.orders);
+        } else if (payload.data?.order) {
+          candidates.push(payload.data.order);
+        } else {
+          candidates.push(payload);
+        }
+      }
+
+      const activeRawOrder = candidates.find((order) => {
+        const normalizedStatus = (
+          order?.status ||
+          order?.orderStatus ||
+          ""
+        ).toUpperCase();
+        return activeStatuses.includes(normalizedStatus);
+      });
+
+      if (!activeRawOrder) return;
+
+      const restoredOrder = parseCustomerOrder(activeRawOrder);
+      if (!restoredOrder) return;
+
+      setActiveOrder(restoredOrder);
+      handleNewSystemMessage(
+        `Resuming your active order ${restoredOrder.id} with status ${restoredOrder.status}.`,
+      );
+    } catch (error) {
+      console.error("Failed to restore active order from server:", error);
+    }
+  }, [activeOrder.id, handleNewSystemMessage]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void restoreActiveOrderFromServer();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [restoreActiveOrderFromServer]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -115,59 +337,13 @@ export default function Home() {
   }, [messages, cart, activeOrder]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    chatEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
   }, [messages]);
 
-  const getDriverDetails = (payload: any) => {
-    const driver =
-      payload?.driver ||
-      payload?.deliveryPerson ||
-      payload?.deliveryMan ||
-      payload?.courier ||
-      {};
-    const deliveryPersonName =
-      payload?.deliveryPersonName ||
-      payload?.deliveryManName ||
-      payload?.driverName ||
-      driver?.name ||
-      driver?.fullName ||
-      null;
-    const deliveryPersonMobile =
-      payload?.deliveryPersonMobile ||
-      payload?.deliveryManMobile ||
-      payload?.driverMobile ||
-      driver?.mobile ||
-      driver?.phone ||
-      driver?.phoneNumber ||
-      null;
-
-    return { deliveryPersonName, deliveryPersonMobile };
-  };
-
-  const getStatusMessage = (status: string | null, mobile: string | null) => {
-    const normalized = (status || "PENDING").toUpperCase();
-
-    switch (normalized) {
-      case "ACCEPTED":
-        return "Your order has been accepted and is being prepared.";
-      case "SHOPPING":
-        return mobile
-          ? `Your delivery person is shopping for your order. You can call them at ${mobile}.`
-          : "Your delivery person is shopping for your order.";
-      case "IN_TRANSIT":
-        return mobile
-          ? `Your order is on the way. You can call your delivery person at ${mobile}.`
-          : "Your order is on the way.";
-      case "DELIVERED":
-        return "Your order has been delivered. Order update mode is now closed.";
-      case "CANCELLED":
-        return "Your order was cancelled. You can place a new order whenever you are ready.";
-      default:
-        return "Your order is still pending. We are waiting for confirmation.";
-    }
-  };
-
-  const pollOrderStatus = async () => {
+  const pollOrderStatus = useCallback(async () => {
     if (!activeOrder.id) return;
 
     const { token } = getTokens();
@@ -223,27 +399,43 @@ export default function Home() {
           driverDetails.deliveryPersonMobile ||
             activeOrder.deliveryPersonMobile,
         );
-        handleNewSystemMessage(message);
+        const announcementKey = `${activeOrder.id}:${nextStatus}:${driverDetails.deliveryPersonMobile || activeOrder.deliveryPersonMobile || ""}`;
+        if (announcementKey !== lastAnnouncementKeyRef.current) {
+          handleNewSystemMessage(message);
+          lastAnnouncementKeyRef.current = announcementKey;
+        }
         lastAnnouncedStatusRef.current = nextStatus;
       }
     } catch (error) {
       console.error("Order status polling failed:", error);
     }
-  };
+  }, [
+    activeOrder.id,
+    activeOrder.status,
+    activeOrder.deliveryPersonMobile,
+    handleNewSystemMessage,
+  ]);
 
   useEffect(() => {
     if (!activeOrder.id) {
       lastAnnouncedStatusRef.current = null;
+      lastAnnouncementKeyRef.current = null;
       return;
     }
 
-    void pollOrderStatus();
+    const timeoutId = window.setTimeout(() => {
+      void pollOrderStatus();
+    }, 0);
+
     const intervalId = window.setInterval(() => {
       void pollOrderStatus();
     }, 10000);
 
-    return () => window.clearInterval(intervalId);
-  }, [activeOrder.id]);
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
+    };
+  }, [activeOrder.id, pollOrderStatus]);
 
   const handleNewUserMessage = (text: string) => {
     setMessages((prev) => [
@@ -252,15 +444,6 @@ export default function Home() {
     ]);
   };
 
-  const handleNewSystemMessage = (text: string) => {
-    setMessages((prev) => [
-      ...prev,
-      { id: (Date.now() + 1).toString(), role: "ai", text },
-    ]);
-    announce(text);
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleCartUpdate = (updatedCart: any) => {
     // Update the visual cart first
     setCart(updatedCart);
@@ -275,6 +458,8 @@ export default function Home() {
     try {
       // Announce to screen readers that processing has started
       announce("Sending order to server...");
+
+      await requestLocationPermission();
 
       const { token } = getTokens();
 
@@ -326,12 +511,13 @@ export default function Home() {
   };
 
   return (
-    <div className="bg-brand-bg">
-      5
-      <div className="flex flex-col h-screen max-w-md mx-auto border-x border-brand-border bg-brand-bg text-white overflow-hidden">
+    // 1. Strictly lock the outermost wrapper to the exact device height
+    <div className="h-dvh w-full bg-brand-bg overflow-hidden flex justify-center">
+      {/* 2. Inner wrapper takes 100% of the locked height (h-full instead of h-dvh) */}
+      <div className="flex flex-col h-full w-full max-w-md lg:max-w-lg xl:max-w-xl border-x border-brand-border bg-brand-bg text-white overflow-hidden">
         {/* Header */}
         <header
-          className="p-6 border-b border-brand-border bg-brand-surface flex justify-between items-center z-10"
+          className="p-6 border-b border-brand-border bg-brand-surface flex justify-between items-center z-10 shrink-0"
           role="banner"
         >
           <div>
@@ -371,7 +557,7 @@ export default function Home() {
 
         {/* Main Chat Area */}
         <main
-          className="grow p-6 overflow-y-auto space-y-6"
+          className="flex-1 min-h-0 p-6 pb-2 overflow-y-auto flex flex-col gap-6"
           role="log"
           aria-live="polite"
         >
@@ -411,11 +597,14 @@ export default function Home() {
               )}
             </div>
           )}
-          <div ref={chatEndRef} />
+
+          {/* 3. The ref div doesn't need to be fully visible, but it needs to exist. */}
+          <div ref={chatEndRef} className="h-0 w-0" />
         </main>
 
         {/* Sticky Bottom Action Panel */}
-        <div className="mt-auto border-t border-brand-border bg-brand-bg z-10">
+        {/* 4. Removed mt-auto; flex-1 on main already pushes this to the absolute bottom */}
+        <div className="border-t border-brand-border bg-brand-bg z-10 shrink-0">
           <footer>
             <VoiceInterface
               currentCart={cart}

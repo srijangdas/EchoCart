@@ -69,6 +69,27 @@ export async function POST(req: Request) {
     }
 
     if (activeOrderId) {
+      const normalizedTranscript = userSpokenText.toLowerCase();
+      const wantsToCallDriver =
+        normalizedTranscript.includes("call") &&
+        (normalizedTranscript.includes("driver") ||
+          normalizedTranscript.includes("delivery") ||
+          normalizedTranscript.includes("delivery person"));
+
+      if (wantsToCallDriver) {
+        return NextResponse.json({
+          transcript: userSpokenText,
+          orderUpdate: {
+            message: "I can help you call your delivery person.",
+            orderStatus: "CALL_REQUESTED",
+            deliveryPersonName: null,
+            deliveryPersonMobile: null,
+            shouldResetActiveOrder: false,
+            shouldOpenDialer: true,
+          },
+        });
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let statusPayload: Record<string, any> | null = null;
       let normalizedStatus = (activeOrderStatus || "PENDING").toUpperCase();
@@ -98,22 +119,11 @@ export async function POST(req: Request) {
         console.error("Failed to fetch active order status:", error);
       }
 
-      const deliveryPersonName =
-        statusPayload?.deliveryPersonName ||
-        statusPayload?.deliveryManName ||
-        statusPayload?.driverName ||
-        statusPayload?.driver?.name ||
-        statusPayload?.driver?.fullName ||
-        null;
+      const deliveryPersonName = statusPayload?.deliveryName;
+      null;
 
-      const deliveryPersonMobile =
-        statusPayload?.deliveryManMobile ||
-        statusPayload?.deliveryPersonMobile ||
-        statusPayload?.driverMobile ||
-        statusPayload?.driver?.phone ||
-        statusPayload?.driver?.mobile ||
-        statusPayload?.driver?.phoneNumber ||
-        null;
+      const deliveryPersonMobile = statusPayload?.deliveryPhoneNo;
+      null;
 
       if (normalizedStatus === "DELIVERED") {
         return NextResponse.json({
@@ -145,9 +155,9 @@ export async function POST(req: Request) {
 
       const messageByStatus: Record<string, string> = {
         PENDING:
-          "Your order is still pending. We are waiting for the restaurant or store to confirm it.",
+          "Your order is still pending. We are waiting for delivery partner to accept it.",
         ACCEPTED:
-          "Your order has been accepted and is being prepared. I can keep you updated on progress.",
+          "Your order has been accepted and is being prepared. Driver will buy soon.",
         SHOPPING:
           "Your delivery person is currently shopping for your order. You can call them on",
         IN_TRANSIT:
@@ -184,6 +194,7 @@ export async function POST(req: Request) {
     - All prices and the estimatedPrice MUST be in Indian Rupees (INR). Estimate realistic Indian market prices if exact prices are unknown.
     - For generic groceries (e.g., potatoes, rice, milk), DO NOT include "brand", "model", or "color". Just name, price, and quantity.
     - If the user explicitly asks to "checkout", "place the order", or says they are "done", set the "checkoutRequested" flag to true. Otherwise, false.
+    - Do NOT allow checkout if the resulting cart has no items. If the cart is empty, return a clarification asking the user to add at least one item first.
     When defining an item's name, always incorporate the specific unit, package type, or metric mentioned by the user if it dictates weight or volume.
     For example, if a user asks for '2.5 kg potatoes', set name to 'Potatoes (kg)' and quantity to 2.5. If they ask for 'one 500 ml milk carton', set name to '500ml Milk Carton' and quantity to 1.
     If the user requests a specific brand or variant, include that in the name. For example, 'Amul Butter 200g' or 'Tata Salt 1kg'.
@@ -247,14 +258,37 @@ export async function POST(req: Request) {
       });
     }
 
-    if (
-      !parsedResponse?.orderJson ||
-      !Array.isArray(parsedResponse.orderJson?.itemList)
-    ) {
+    const itemList = parsedResponse?.orderJson?.itemList ?? [];
+    const normalizedTranscript = userSpokenText.toLowerCase();
+    const wantsCheckout =
+      normalizedTranscript.includes("checkout") ||
+      normalizedTranscript.includes("place the order") ||
+      normalizedTranscript.includes("place order") ||
+      normalizedTranscript.includes("done") ||
+      normalizedTranscript.includes("finish");
+
+    if (!parsedResponse?.orderJson || !Array.isArray(itemList)) {
       console.error("LLM returned an invalid cart payload:", parsedResponse);
       return NextResponse.json({
         transcript: userSpokenText,
         clarification: "I need a bit more detail to process that request.",
+      });
+    }
+
+    if (!itemList.length) {
+      return NextResponse.json({
+        transcript: userSpokenText,
+        clarification: wantsCheckout
+          ? "Your cart is empty. Add at least one item before placing an order."
+          : "I couldn’t find a valid item in that request. Please be more specific.",
+      });
+    }
+
+    if (wantsCheckout && parsedResponse?.checkoutRequested) {
+      return NextResponse.json({
+        transcript: userSpokenText,
+        clarification:
+          "Your cart is empty. Add at least one item before placing an order.",
       });
     }
 

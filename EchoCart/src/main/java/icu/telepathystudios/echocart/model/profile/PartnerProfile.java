@@ -12,6 +12,7 @@ public class PartnerProfile {
     @Id
     private UUID userId;
 
+
     private String name;
     private String address;
     private String city;

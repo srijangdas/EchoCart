@@ -36,9 +36,12 @@ public class OrderService {
         UUID partnerId = order.getPartnerId();
 
         PartnerProfile partnerProfile = partnerProfileRepo.findById(partnerId).orElseThrow(() ->
-                new RuntimeException("Partner not found"));;
+                new RuntimeException("Partner not found"));
 
-        return new OrderStatusResponse(order.getOrderStatus().toString(), partnerProfile.getName().toString());
+        User user = userRepo.findById(partnerId).orElseThrow(() ->
+                new RuntimeException("Partner not found"));
+
+        return new OrderStatusResponse(order.getOrderStatus().toString(), partnerProfile.getName(), user.getPhoneNo());
     }
 
     public record CustomerData(
