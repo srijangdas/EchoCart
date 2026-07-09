@@ -1,65 +1,97 @@
-import Image from "next/image";
+'use client';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation'; 
+import { getTokens } from '@/utils/api';     
+import Link from 'next/link';               
+import { useAccessibility } from '../context/AccessibilityContext';
+import VoiceInterface from '../components/VoiceInterface';
+
+type Message = {
+  id: string;
+  role: 'user' | 'ai';
+  text: string;
+};
 
 export default function Home() {
+  const router = useRouter();
+  const { announce } = useAccessibility();
+  
+  // AUTH CHECK: Redirects to login if no token
+  useEffect(() => {
+    const { token } = getTokens();
+    if (!token) {
+      router.push('/login');
+    }
+  }, [router]);
+
+  // Initialize with a welcome message
+  const [messages, setMessages] = useState<Message[]>([
+    { id: '1', role: 'ai', text: 'EchoCart active. Hold the button below and tell me what you need to add to your order.' }
+  ]);
+  
+  // Ref to handle auto-scrolling
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Announce the initial load state for screen readers
+    announce('EchoCart AI is ready. Hold the bottom button to speak.');
+  }, [announce]);
+
+  useEffect(() => {
+    // Automatically scroll to the latest message whenever the array updates
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="flex flex-col min-h-screen max-w-md mx-auto border-x border-zinc-900 bg-black text-white">
+      
+      {/* UPDATED HEADER WITH PROFILE ICON */}
+      <header className="p-6 border-b border-zinc-800 bg-zinc-950 flex justify-between items-center" role="banner">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-wide text-rose-500">EchoCart</h1>
+          <p className="text-sm text-zinc-400 mt-1">AI Voice Assistant</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        
+        <Link 
+          href="/profile" 
+          className="p-3 border-2 border-zinc-700 rounded-full hover:border-rose-500 hover:bg-zinc-900 transition-colors"
+          aria-label="Open Account Profile and Settings"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        </Link>
+      </header>
+
+      <main 
+        className="flex-grow p-6 overflow-y-auto space-y-6" 
+        role="log" 
+        aria-live="polite"
+        aria-atomic="false"
+      >
+        {messages.map((msg) => (
+          <div 
+            key={msg.id} 
+            className={`p-4 rounded-2xl max-w-[85%] shadow-lg ${
+              msg.role === 'user' 
+                ? 'bg-rose-700 text-white ml-auto rounded-br-sm' 
+                : 'bg-zinc-900 border border-zinc-800 text-zinc-100 mr-auto rounded-bl-sm'
+            }`}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+            <span className="sr-only">
+              {msg.role === 'user' ? 'You said:' : 'EchoCart said:'}
+            </span>
+            <p className="text-lg leading-relaxed">{msg.text}</p>
+          </div>
+        ))}
+        <div ref={chatEndRef} />
       </main>
+
+      <footer className="p-4 border-t border-zinc-900 sticky bottom-0 bg-black">
+        <VoiceInterface />
+      </footer>
+      
     </div>
   );
 }
