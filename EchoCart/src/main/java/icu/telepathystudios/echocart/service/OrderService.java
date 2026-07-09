@@ -2,6 +2,7 @@ package icu.telepathystudios.echocart.service;
 
 import icu.telepathystudios.echocart.dto.order.CreateOrderRequest;
 import icu.telepathystudios.echocart.dto.order.OrderResponse;
+import icu.telepathystudios.echocart.dto.order.OrderStatusResponse;
 import icu.telepathystudios.echocart.model.User;
 import icu.telepathystudios.echocart.model.order.Order;
 import icu.telepathystudios.echocart.model.order.OrderStatus;
@@ -25,6 +26,14 @@ public class OrderService {
     private final OrderRepo orderRepo;
     private final UserRepo userRepo;
     private final CustomerProfileRepo customerProfileRepo;
+
+    public OrderStatusResponse orderStatus(UUID orderId) {
+        Order order = orderRepo.findById(orderId).orElseThrow(() ->
+                new RuntimeException("Order not found"));
+        UUID partnerId = order.getPartnerId();
+
+        return new OrderStatusResponse(order.getOrderStatus().toString());
+    }
 
     public record CustomerData(
             UUID customerId,
