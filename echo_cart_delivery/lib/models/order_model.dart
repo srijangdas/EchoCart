@@ -2,6 +2,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 enum OrderStatus { pending, accepted, rejected, completed }
 
+enum DeliveryStatus { accepted, shopping, inTransit, delivered }
+
 class OrderModel {
   final String id;
   final String customerName;
@@ -12,6 +14,7 @@ class OrderModel {
   final LatLng deliveryLocation;
   final String deliveryAddress;
   OrderStatus status;
+  DeliveryStatus deliveryStatus;
 
   OrderModel({
     required this.id,
@@ -23,6 +26,7 @@ class OrderModel {
     required this.deliveryLocation,
     required this.deliveryAddress,
     this.status = OrderStatus.pending,
+    this.deliveryStatus = DeliveryStatus.accepted,
   });
 
   Map<String, dynamic> toJson() => {
@@ -38,6 +42,7 @@ class OrderModel {
     },
     'deliveryAddress': deliveryAddress,
     'status': status.name,
+    'deliveryStatus': deliveryStatus.name,
   };
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
@@ -57,6 +62,10 @@ class OrderModel {
       status: OrderStatus.values.firstWhere(
         (e) => e.name == (json['status'] as String? ?? 'pending'),
         orElse: () => OrderStatus.pending,
+      ),
+      deliveryStatus: DeliveryStatus.values.firstWhere(
+        (e) => e.name == (json['deliveryStatus'] as String? ?? 'accepted'),
+        orElse: () => DeliveryStatus.accepted,
       ),
     );
   }

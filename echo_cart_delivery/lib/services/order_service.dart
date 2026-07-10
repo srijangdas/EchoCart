@@ -228,6 +228,139 @@ class OrderService {
     _changeController.add(null);
   }
 
+  /// Fetch active orders for the delivery partner
+  Future<List<OrderModel>> getActiveOrders({required String token}) async {
+    final uri = Uri.parse('$_ordersBaseUrl/partner/active');
+    final resp = await http.get(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (resp.statusCode >= 200 && resp.statusCode < 300) {
+      final body = jsonDecode(resp.body);
+      if (body is List) {
+        return body.map<OrderModel>((e) {
+          final orderId = e['orderId']?.toString() ?? e['id']?.toString() ?? '';
+          final customerName = e['customerName']?.toString() ?? 'Unknown';
+          final customerNumber = e['customerNumber']?.toString() ?? '';
+          final orderStatus = e['orderStatus']?.toString() ?? 'PENDING';
+          final deliveryStatus = e['deliveryStatus']?.toString() ?? 'ACCEPTED';
+          final orderJson = e['orderJson'] as Map<String, dynamic>? ?? {};
+          final itemList = (orderJson['itemList'] is List)
+              ? orderJson['itemList'] as List
+              : <dynamic>[];
+
+          return OrderModel(
+            id: orderId,
+            customerName: customerName,
+            customerPhone: customerNumber,
+            item: _buildItemSummary(itemList, orderJson),
+            quantity: _buildQuantity(itemList, orderJson),
+            price: _buildPrice(e['estimatedPrice'], itemList, orderJson),
+            deliveryLocation: _latLngFromJson(
+              e['deliveryCoordinates'] ?? orderJson['deliveryCoordinates'],
+            ),
+            deliveryAddress: _buildDeliveryAddress(e, orderJson),
+            status: _mapOrderStatus(orderStatus),
+            deliveryStatus: _mapDeliveryStatus(deliveryStatus),
+          );
+        }).toList();
+      }
+    }
+    return [];
+  }
+
+  /// Fetch order history for the delivery partner
+  Future<List<OrderModel>> getOrderHistory({required String token}) async {
+    final uri = Uri.parse('$_ordersBaseUrl/partner/history');
+    final resp = await http.get(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (resp.statusCode >= 200 && resp.statusCode < 300) {
+      final body = jsonDecode(resp.body);
+      if (body is List) {
+        return body.map<OrderModel>((e) {
+          final orderId = e['orderId']?.toString() ?? e['id']?.toString() ?? '';
+          final customerName = e['customerName']?.toString() ?? 'Unknown';
+          final customerNumber = e['customerNumber']?.toString() ?? '';
+          final orderStatus = e['orderStatus']?.toString() ?? 'COMPLETED';
+          final deliveryStatus = e['deliveryStatus']?.toString() ?? 'DELIVERED';
+          final orderJson = e['orderJson'] as Map<String, dynamic>? ?? {};
+          final itemList = (orderJson['itemList'] is List)
+              ? orderJson['itemList'] as List
+              : <dynamic>[];
+
+          return OrderModel(
+            id: orderId,
+            customerName: customerName,
+            customerPhone: customerNumber,
+            item: _buildItemSummary(itemList, orderJson),
+            quantity: _buildQuantity(itemList, orderJson),
+            price: _buildPrice(e['estimatedPrice'], itemList, orderJson),
+            deliveryLocation: _latLngFromJson(
+              e['deliveryCoordinates'] ?? orderJson['deliveryCoordinates'],
+            ),
+            deliveryAddress: _buildDeliveryAddress(e, orderJson),
+            status: _mapOrderStatus(orderStatus),
+            deliveryStatus: _mapDeliveryStatus(deliveryStatus),
+          );
+        }).toList();
+      }
+    }
+    return [];
+  }
+
+  /// Accept an order
+  Future<bool> acceptOrder({
+    required String token,
+    required String orderId,
+  }) async {
+    final uri = Uri.parse('$_ordersBaseUrl/$orderId/accept');
+    final resp = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    return resp.statusCode >= 200 && resp.statusCode < 300;
+  }
+
+  /// Update delivery status of an order
+  Future<bool> updateDeliveryStatus({
+    required String token,
+    required String orderId,
+    required String status,
+  }) async {
+    final uri = Uri.parse('$_ordersBaseUrl/$orderId/status');
+    final resp = await http.put(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'status': status}),
+    );
+    return resp.statusCode >= 200 && resp.statusCode < 300;
+  }
+
+  static DeliveryStatus _mapDeliveryStatus(String s) {
+    final lower = s.toLowerCase();
+    if (lower.contains('shopping')) return DeliveryStatus.shopping;
+    if (lower.contains('transit') || lower.contains('in_transit'))
+      return DeliveryStatus.inTransit;
+    if (lower.contains('deliver')) return DeliveryStatus.delivered;
+    return DeliveryStatus.accepted;
+  }
+
   void dispose() {
     _changeController.close();
   }

@@ -25,6 +25,7 @@ class _AccountScreenState extends State<AccountScreen> {
   final AuthService _authService = AuthService.instance;
   final OrderService _orderService = OrderService();
   Future<List<OrderModel>> _completedFuture = Future.value(<OrderModel>[]);
+  Future<List<OrderModel>> _orderHistoryFuture = Future.value(<OrderModel>[]);
   StreamSubscription<void>? _orderSub;
 
   @override
@@ -32,6 +33,7 @@ class _AccountScreenState extends State<AccountScreen> {
     super.initState();
     _driverFuture = _driverService.getDriver();
     _refreshDriver();
+    _loadOrderHistory();
     _completedFuture = _orderService.getCompletedOrders();
     _orderSub = _orderService.onChange.listen((_) {
       if (!mounted) return;
@@ -39,6 +41,22 @@ class _AccountScreenState extends State<AccountScreen> {
         _completedFuture = _orderService.getCompletedOrders();
       });
     });
+  }
+
+  Future<void> _loadOrderHistory() async {
+    try {
+      final token = await SecureStorageService.getToken();
+      if (token != null && token.isNotEmpty) {
+        setState(() {
+          _orderHistoryFuture = _orderService.getOrderHistory(token: token);
+        });
+      }
+    } catch (_) {
+      // Fallback to empty list if error
+      setState(() {
+        _orderHistoryFuture = Future.value(<OrderModel>[]);
+      });
+    }
   }
 
   Future<void> _refreshDriver() async {
@@ -355,7 +373,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 const SizedBox(height: 30),
                 // Delivery History Section
                 FutureBuilder<List<OrderModel>>(
-                  future: _completedFuture,
+                  future: _orderHistoryFuture,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return Container(
@@ -370,13 +388,13 @@ class _AccountScreenState extends State<AccountScreen> {
 
                     final items = snapshot.data ?? [];
                     return _buildSection(
-                      title: 'Delivery History',
+                      title: 'Order History',
                       children: items.isEmpty
                           ? [
                               Padding(
                                 padding: const EdgeInsets.all(16.0),
                                 child: Text(
-                                  'No completed deliveries yet',
+                                  'No past orders yet',
                                   style: TextStyle(color: Colors.grey[600]),
                                 ),
                               ),
@@ -389,8 +407,16 @@ class _AccountScreenState extends State<AccountScreen> {
                                       '${o.customerName} • ₹${o.price}',
                                     ),
                                     trailing: Text(
-                                      o.deliveryAddress,
-                                      overflow: TextOverflow.ellipsis,
+                                      o.deliveryStatus.name,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color:
+                                            o.deliveryStatus ==
+                                                DeliveryStatus.delivered
+                                            ? Colors.green
+                                            : Colors.orange,
+                                      ),
                                     ),
                                   ),
                                 )
