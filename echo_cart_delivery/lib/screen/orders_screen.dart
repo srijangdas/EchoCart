@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../utils/colors.dart';
 import '../models/order_model.dart';
 import '../utils/utils.dart';
-import 'order_detail_screen.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -11,7 +10,9 @@ import '../services/order_service.dart';
 import '../services/secure_storage_service.dart';
 
 class OrdersScreen extends StatefulWidget {
-  const OrdersScreen({super.key});
+  final ValueChanged<OrderModel>? onActiveOrderSelected;
+
+  const OrdersScreen({super.key, this.onActiveOrderSelected});
 
   @override
   State<OrdersScreen> createState() => _OrdersScreenState();
@@ -23,7 +24,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   final OrderService _orderService = OrderService();
 
   late List<OrderModel> _orders;
-  bool _loading = true;
+  String? _activeOrderId; // Track the active/accepted order
 
   @override
   void initState() {
@@ -33,16 +34,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Future<void> _loadOrders() async {
-    setState(() => _loading = true);
     try {
       final token = await SecureStorageService.getToken();
       if (token == null || token.isEmpty) {
-        // show cached/sample orders
         setState(() => _orders = List<OrderModel>.from(_sampleOrders));
       } else {
         final list = await _orderService.fetchAvailableOrders(token: token);
         if (list.isEmpty) {
-          // fallback to samples
           setState(() => _orders = List<OrderModel>.from(_sampleOrders));
         } else {
           setState(() => _orders = list);
@@ -50,28 +48,57 @@ class _OrdersScreenState extends State<OrdersScreen> {
       }
     } catch (_) {
       setState(() => _orders = List<OrderModel>.from(_sampleOrders));
-    } finally {
-      setState(() => _loading = false);
     }
   }
 
-  Future<void> _onOrderStatusChanged(OrderModel order) async {
-    setState(() {});
-    if (order.status == OrderStatus.accepted) {
-      // Clear the available orders list so UI placeholder is empty
-      final acceptedOrder = order;
-      setState(() => _orders = []);
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => OrderDetailScreen(order: acceptedOrder),
-        ),
-      );
+  Future<void> _onOrderStatusChanged(
+    OrderModel order, {
+    required bool isAccepted,
+  }) async {
+    if (!isAccepted) return;
+
+    final token = await SecureStorageService.getToken();
+    if (token == null || token.isEmpty) {
+      if (mounted) {
+        showAppSnackbar(
+          context: context,
+          type: SnackbarType.error,
+          description: 'No token found. Please login again.',
+        );
+      }
       return;
     }
 
-    if (order.status == OrderStatus.completed) {
-      await _orderService.addCompletedOrder(order);
+    final accepted = await _orderService.acceptOrder(
+      token: token,
+      orderId: order.id,
+    );
+
+    if (!accepted) {
+      if (mounted) {
+        showAppSnackbar(
+          context: context,
+          type: SnackbarType.error,
+          description: 'Unable to accept order right now.',
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _activeOrderId = order.id;
+      order.status = OrderStatus.accepted;
+      order.deliveryStatus = DeliveryStatus.accepted;
+    });
+
+    widget.onActiveOrderSelected?.call(order);
+
+    if (mounted) {
+      showAppSnackbar(
+        context: context,
+        type: SnackbarType.success,
+        description: 'Order accepted',
+      );
     }
   }
 
@@ -180,9 +207,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 itemCount: _orders.length,
                 itemBuilder: (context, index) {
                   final order = _orders[index];
+                  final isActiveOrder = _activeOrderId == order.id;
+                  final hasActiveOrder = _activeOrderId != null;
+
                   final card = OrderCard(
                     order: order,
+                    isActive: isActiveOrder,
+                    hasActiveOrder: hasActiveOrder,
                     onStatusChanged: _onOrderStatusChanged,
+                    onViewDetails: widget.onActiveOrderSelected,
                   );
 
                   Widget item = card;
@@ -251,9 +284,20 @@ final List<OrderModel> _sampleOrders = [
 
 class OrderCard extends StatefulWidget {
   final OrderModel order;
-  final void Function(OrderModel order)? onStatusChanged;
+  final bool isActive;
+  final bool hasActiveOrder;
+  final Future<void> Function(OrderModel order, {required bool isAccepted})?
+  onStatusChanged;
+  final ValueChanged<OrderModel>? onViewDetails;
 
-  const OrderCard({super.key, required this.order, this.onStatusChanged});
+  const OrderCard({
+    super.key,
+    required this.order,
+    this.isActive = false,
+    this.hasActiveOrder = false,
+    this.onStatusChanged,
+    this.onViewDetails,
+  });
 
   @override
   State<OrderCard> createState() => _OrderCardState();
@@ -268,194 +312,204 @@ class _OrderCardState extends State<OrderCard> {
     order = widget.order;
   }
 
+  Widget _buildDeliveryStatusIndicator() {
+    final statuses = [
+      (DeliveryStatus.accepted, 'A'),
+      (DeliveryStatus.shopping, 'S'),
+      (DeliveryStatus.inTransit, 'T'),
+      (DeliveryStatus.delivered, 'D'),
+    ];
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(statuses.length, (index) {
+        final (status, label) = statuses[index];
+        final isCompleted = _isStatusCompleted(status);
+        final isCurrent = order.deliveryStatus == status;
+
+        return Padding(
+          padding: EdgeInsets.only(right: index < statuses.length - 1 ? 6 : 0),
+          child: Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: isCompleted
+                  ? buttonMainColor
+                  : isCurrent
+                  ? Colors.orange
+                  : Colors.grey.shade300,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: (isCompleted || isCurrent)
+                      ? Colors.white
+                      : Colors.grey.shade600,
+                ),
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  bool _isStatusCompleted(DeliveryStatus status) {
+    final statusOrder = [
+      DeliveryStatus.accepted,
+      DeliveryStatus.shopping,
+      DeliveryStatus.inTransit,
+      DeliveryStatus.delivered,
+    ];
+    final currentIndex = statusOrder.indexOf(order.deliveryStatus);
+    final statusIndex = statusOrder.indexOf(status);
+    return statusIndex < currentIndex;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => OrderDetailScreen(order: order)),
-        );
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(8),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            order.customerName,
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        _statusChip(),
-                        const SizedBox(width: 8),
-                      ],
-                    ),
-                  ),
-                  Row(
+    final isAccepted = order.status == OrderStatus.accepted;
+    final isActive = widget.isActive;
+    final hasActiveOrder = widget.hasActiveOrder;
+    final canAccept = !hasActiveOrder || isActive;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(8),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+        border: isActive ? Border.all(color: buttonMainColor, width: 2) : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Row(
                     children: [
-                      GestureDetector(
-                        onTap: () async {
-                          await _openDialer(context, order.customerPhone);
-                        },
-                        child: _smallCircleIcon(Icons.call),
+                      Expanded(
+                        child: Text(
+                          order.customerName,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
                       ),
                       const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () async {
-                          final error = await openLocationInMaps(
-                            order.deliveryLocation,
-                            order.deliveryAddress,
-                          );
-                          if (error != null && context.mounted) {
-                            showAppSnackbar(
-                              context: context,
-                              type: SnackbarType.error,
-                              description: error,
-                            );
-                          }
-                        },
-                        child: _smallCircleIcon(Icons.navigation),
-                      ),
+                      if (isAccepted)
+                        _buildDeliveryStatusIndicator()
+                      else
+                        _statusChip(),
+                      const SizedBox(width: 8),
                     ],
                   ),
-                ],
-              ),
-            ),
-
-            const Divider(height: 1, thickness: 1),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Item: ${order.item}',
-                    style: const TextStyle(color: Colors.black87),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Qty: ${order.quantity}  •  Price: ₹${order.price}',
-                    style: const TextStyle(color: Colors.black54),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Address: ${order.deliveryAddress}',
-                    style: const TextStyle(color: Colors.black54),
-                  ),
-                ],
-              ),
-            ),
-
-            const Divider(height: 1, thickness: 1),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: order.status == OrderStatus.completed
-                          ? null
-                          : () {
-                              setState(() {
-                                order.status = OrderStatus.rejected;
-                              });
-                              widget.onStatusChanged?.call(order);
-                              showAppSnackbar(
-                                context: context,
-                                type: SnackbarType.error,
-                                description: 'Order rejected',
-                              );
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: declineOrder,
-                        foregroundColor: Colors.blue.shade800,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Reject\nOrder',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
+                ),
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () async {
+                        await _openDialer(context, order.customerPhone);
+                      },
+                      child: _smallCircleIcon(Icons.call),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: order.status == OrderStatus.completed
-                          ? null
-                          : () async {
-                              if (order.status != OrderStatus.accepted) {
-                                setState(
-                                  () => order.status = OrderStatus.accepted,
-                                );
-                                widget.onStatusChanged?.call(order);
-                                showAppSnackbar(
-                                  context: context,
-                                  type: SnackbarType.success,
-                                  description: 'Order accepted',
-                                );
-                              } else {
-                                // complete
-                                setState(
-                                  () => order.status = OrderStatus.completed,
-                                );
-                                widget.onStatusChanged?.call(order);
-                                showAppSnackbar(
-                                  context: context,
-                                  type: SnackbarType.success,
-                                  description: 'Order completed',
-                                );
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () async {
+                        final error = await openLocationInMaps(
+                          order.deliveryLocation,
+                          order.deliveryAddress,
+                        );
+                        if (error != null && context.mounted) {
+                          showAppSnackbar(
+                            context: context,
+                            type: SnackbarType.error,
+                            description: error,
+                          );
+                        }
+                      },
+                      child: _smallCircleIcon(Icons.navigation),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(height: 1, thickness: 1),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Item: ${order.item}',
+                  style: const TextStyle(color: Colors.black87),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Qty: ${order.quantity}  •  Price: ₹${order.price}',
+                  style: const TextStyle(color: Colors.black54),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Address: ${order.deliveryAddress}',
+                  style: const TextStyle(color: Colors.black54),
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(height: 1, thickness: 1),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: isAccepted
+                    ? () => widget.onViewDetails?.call(order)
+                    : (canAccept
+                          ? () async {
+                              final callback = widget.onStatusChanged;
+                              if (callback != null) {
+                                await callback(order, isAccepted: true);
                               }
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: destinationReached,
-                        foregroundColor: iconColor,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        order.status == OrderStatus.accepted
-                            ? 'Complete\nOrder'
-                            : 'Accept\nOrder',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
+                            }
+                          : null),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isAccepted
+                      ? buttonMainColor
+                      : (canAccept ? destinationReached : Colors.grey.shade300),
+                  foregroundColor: isAccepted
+                      ? Colors.white
+                      : (canAccept ? iconColor : Colors.grey.shade500),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ],
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  elevation: 0,
+                ),
+                child: Text(
+                  isAccepted ? 'View\nDetails' : 'Accept\nOrder',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

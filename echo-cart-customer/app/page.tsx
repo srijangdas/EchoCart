@@ -145,7 +145,7 @@ export default function Home() {
       const { token } = getTokens();
 
       if (token) {
-        await fetch("https://api.echocart.in/api/customer/location", {
+        await fetch("https://api.echocart.in/api/profile/customer/location", {
           method: "PUT",
           headers: {
             "Content-Type": "text/plain",
