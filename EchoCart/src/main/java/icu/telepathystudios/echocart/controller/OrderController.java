@@ -41,10 +41,9 @@ public class OrderController {
 
     @PostMapping("/{orderId}/accept")
     public OrderResponse acceptOrder(
-            @PathVariable UUID orderId,
-            @RequestParam UUID partnerId
+            @PathVariable UUID orderId
     ){
-        return orderService.acceptOrder(orderId, partnerId);
+        return orderService.acceptOrder(orderId);
     }
 
     @PostMapping("/{orderId}/pickup")
@@ -60,6 +59,25 @@ public class OrderController {
     ){
         return orderService.deliverOrder(orderId);
     }
+
+    @PostMapping("/{orderId}/cancel")
+    public OrderResponse cancelOrder(
+            @PathVariable UUID orderId
+    ){
+        return orderService.cancelOrder(orderId);
+    }
+
+    @GetMapping("/partner/active")
+    public OrderResponse partnerActiveOrder(){
+        return orderService.partnerActiveOrder();
+    }
+
+    @GetMapping("/partner/history")
+    public List<OrderResponse> partnerOrderHistory(
+    ){
+        return orderService.partnerHistory();
+    }
+
 
     @GetMapping("/{orderId}/status")
     public OrderStatusResponse getOrderStatus(@PathVariable UUID orderId){

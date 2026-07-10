@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../utils/colors.dart';
+import '../models/order_model.dart';
 import 'orders_screen.dart';
+import 'active_order_screen.dart';
 import 'account_screen.dart';
 
 class AppMainScreen extends StatefulWidget {
@@ -13,8 +15,20 @@ class AppMainScreen extends StatefulWidget {
 
 class _AppMainScreenState extends State<AppMainScreen> {
   int _selectedIndex = 0;
+  OrderModel? _activeOrder;
 
-  final List<Widget> _pages = [OrdersScreen(), AccountScreen()];
+  List<Widget> get _pages => [
+    OrdersScreen(onActiveOrderSelected: _handleActiveOrderSelected),
+    ActiveOrderScreen(order: _activeOrder),
+    AccountScreen(),
+  ];
+
+  void _handleActiveOrderSelected(OrderModel order) {
+    setState(() {
+      _activeOrder = order;
+      _selectedIndex = 1;
+    });
+  }
 
   Widget _navIcon(IconData iconData, bool active) {
     return Container(
@@ -65,6 +79,11 @@ class _AppMainScreenState extends State<AppMainScreen> {
                 icon: _navIcon(Icons.list_alt_outlined, false),
                 activeIcon: _navIcon(Icons.list_alt, true),
                 label: 'Orders',
+              ),
+              BottomNavigationBarItem(
+                icon: _navIcon(Icons.local_shipping_outlined, false),
+                activeIcon: _navIcon(Icons.local_shipping, true),
+                label: 'Active Order',
               ),
               BottomNavigationBarItem(
                 icon: _navIcon(Icons.person_outline, false),
