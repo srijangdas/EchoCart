@@ -154,45 +154,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _demoLogin() async {
-    setState(() => _loading = true);
-    try {
-      await _driverService.clearDriver();
-
-      // simulate network delay
-      await Future.delayed(const Duration(milliseconds: 600));
-
-      // Create demo driver data
-      final demoDriver = DriverModel(
-        id: 'demo_001',
-        name: 'John Doe',
-        phone: '9876543210',
-        email: 'john.doe@echocart.com',
-        licenseNumber: 'DL-2024-123456',
-        vehicleNumber: 'KA-01-AB-1234',
-        vehicleType: 'Two Wheeler',
-        status: 'active',
-        profileImage: '',
-        rating: 4.8,
-        totalDeliveries: 156,
-      );
-
-      // Save demo driver data
-      await _driverService.saveDriver(demoDriver);
-      await _driverService.saveToken('demo_token_123456');
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Demo login successful')));
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const AppMainScreen()),
-      );
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -336,21 +297,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                               ),
                               const SizedBox(height: 8),
-                              OutlinedButton(
-                                onPressed: _loading ? null : _demoLogin,
-                                style: OutlinedButton.styleFrom(
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Use demo account',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Color.fromARGB(255, 250, 39, 39),
-                                  ),
-                                ),
-                              ),
                               const SizedBox(height: 2),
                               TextButton(
                                 onPressed: _loading
