@@ -111,6 +111,9 @@ export default function Home() {
   const router = useRouter();
   const { announce } = useAccessibility();
 
+  // Hydration state tracking
+  const [isMounted, setIsMounted] = useState(false);
+
   // Authentication check
   useEffect(() => {
     const { token } = getTokens();
@@ -166,50 +169,42 @@ export default function Home() {
     void requestLocationPermission();
   }, [requestLocationPermission]);
 
-  const [messages, setMessages] = useState<Message[]>(() => {
-    if (typeof window === "undefined") return defaultMessages;
+  const [messages, setMessages] = useState<Message[]>(defaultMessages);
+  const [cart, setCart] = useState<CartState>(defaultCart);
+  const [activeOrder, setActiveOrder] = useState(defaultActiveOrder);
 
+  useEffect(() => {
+    if (!isMounted || !chatEndRef.current) return;
+
+    const container = chatEndRef.current;
+
+    // Deferring slightly allows the browser to render the text items first,
+    // then we snap perfectly to the exact inner scroll limit without creating margins.
+    const scrollTimeout = setTimeout(() => {
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: "smooth",
+      });
+    }, 60);
+
+    return () => clearTimeout(scrollTimeout);
+  }, [messages, isMounted]);
+
+  // Sync localStorage only after safe mounting
+  useEffect(() => {
+    setIsMounted(true);
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (!stored) return defaultMessages;
-
-      const parsed = JSON.parse(stored) as PersistedHomeState;
-      return parsed.messages?.length ? parsed.messages : defaultMessages;
+      if (stored) {
+        const parsed = JSON.parse(stored) as PersistedHomeState;
+        if (parsed.messages?.length) setMessages(parsed.messages);
+        if (parsed.cart) setCart(parsed.cart);
+        if (parsed.activeOrder) setActiveOrder(parsed.activeOrder);
+      }
     } catch (error) {
-      console.error("Failed to restore saved messages:", error);
-      return defaultMessages;
+      console.error("Failed to restore saved local storage states:", error);
     }
-  });
-
-  const [cart, setCart] = useState<CartState>(() => {
-    if (typeof window === "undefined") return defaultCart;
-
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (!stored) return defaultCart;
-
-      const parsed = JSON.parse(stored) as PersistedHomeState;
-      return parsed.cart || defaultCart;
-    } catch (error) {
-      console.error("Failed to restore saved cart:", error);
-      return defaultCart;
-    }
-  });
-
-  const [activeOrder, setActiveOrder] = useState(() => {
-    if (typeof window === "undefined") return defaultActiveOrder;
-
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (!stored) return defaultActiveOrder;
-
-      const parsed = JSON.parse(stored) as PersistedHomeState;
-      return parsed.activeOrder || defaultActiveOrder;
-    } catch (error) {
-      console.error("Failed to restore saved active order:", error);
-      return defaultActiveOrder;
-    }
-  });
+  }, []);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const lastAnnouncedStatusRef = useRef<string | null>(null);
@@ -320,15 +315,16 @@ export default function Home() {
   }, [activeOrder.id, handleNewSystemMessage]);
 
   useEffect(() => {
+    if (!isMounted) return;
     const timeoutId = window.setTimeout(() => {
       void restoreActiveOrderFromServer();
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [restoreActiveOrderFromServer]);
+  }, [restoreActiveOrderFromServer, isMounted]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (!isMounted) return;
 
     const payload: PersistedHomeState = {
       messages,
@@ -337,14 +333,15 @@ export default function Home() {
     };
 
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [messages, cart, activeOrder]);
+  }, [messages, cart, activeOrder, isMounted]);
 
   useEffect(() => {
+    if (!isMounted) return;
     chatEndRef.current?.scrollIntoView({
       behavior: "smooth",
-      block: "nearest",
+      block: "end",
     });
-  }, [messages]);
+  }, [messages, isMounted]);
 
   const pollOrderStatus = useCallback(async () => {
     if (!activeOrder.id) return;
@@ -420,7 +417,7 @@ export default function Home() {
   ]);
 
   useEffect(() => {
-    if (!activeOrder.id) {
+    if (!activeOrder.id || !isMounted) {
       lastAnnouncedStatusRef.current = null;
       lastAnnouncementKeyRef.current = null;
       return;
@@ -438,7 +435,7 @@ export default function Home() {
       window.clearTimeout(timeoutId);
       window.clearInterval(intervalId);
     };
-  }, [activeOrder.id, pollOrderStatus]);
+  }, [activeOrder.id, pollOrderStatus, isMounted]);
 
   const handleNewUserMessage = (text: string) => {
     setMessages((prev) => [
@@ -448,10 +445,8 @@ export default function Home() {
   };
 
   const handleCartUpdate = (updatedCart: any) => {
-    // Update the visual cart first
     setCart(updatedCart);
 
-    // If the AI detected a checkout command, automatically fire the checkout sequence
     if (updatedCart.checkoutRequested) {
       handleCheckout();
     }
@@ -459,18 +454,15 @@ export default function Home() {
 
   const handleCheckout = async () => {
     try {
-      // Announce to screen readers that processing has started
       announce("Sending order to server...");
-
       await requestLocationPermission();
-
       const { token } = getTokens();
 
       const response = await fetch("https://api.echocart.in/api/orders", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`, // The exact header your friend's schema requires
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(cart),
       });
@@ -493,7 +485,6 @@ export default function Home() {
         payload?.data?.status ||
         "PENDING";
 
-      // Success handling
       handleNewSystemMessage("Your order has been placed successfully!");
       const driverDetails = getDriverDetails(payload);
       setActiveOrder({
@@ -503,7 +494,6 @@ export default function Home() {
         deliveryPersonMobile: driverDetails.deliveryPersonMobile,
       });
 
-      // Clear the cart back to empty after a successful checkout
       setCart({ orderJson: { itemList: [] }, estimatedPrice: 0 });
     } catch (error) {
       console.error("Checkout Error:", error);
@@ -513,10 +503,15 @@ export default function Home() {
     }
   };
 
+  // Safe Server-Side Prerendering structure to stop hydration exceptions
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen max-h-screen w-full bg-brand-bg overflow-hidden flex justify-center" />
+    );
+  }
+
   return (
-    // 1. Strictly lock the outermost wrapper to the exact device height
-    <div className="min-h-screen max-h-screen w-full bg-brand-bg overflow-hidden flex justify-center">
-      {/* 2. Inner wrapper stays pinned to the viewport and lets the chat area scroll independently */}
+    <div className="min-h-screen max-h-full w-full bg-brand-bg overflow-hidden flex justify-center">
       <div className="flex flex-col h-screen w-full max-w-md lg:max-w-lg xl:max-w-xl border-x border-brand-border bg-brand-bg text-white overflow-hidden">
         {/* Header */}
         <header
@@ -560,7 +555,8 @@ export default function Home() {
 
         {/* Main Chat Area */}
         <main
-          className="flex-1 min-h-0 p-6 pb-2 overflow-y-auto flex flex-col gap-6"
+          ref={chatEndRef} /* Shifted target here */
+          className="relative flex-1 min-h-0 max-h-full p-6 pb-2 overflow-y-auto flex flex-col gap-6"
           role="log"
           aria-live="polite"
         >
@@ -579,6 +575,7 @@ export default function Home() {
               <p className="text-lg leading-relaxed">{msg.text}</p>
             </div>
           ))}
+
           {activeOrder.id && (
             <div className="p-4 rounded-2xl border border-brand-primary/40 bg-brand-surface/80 text-sm text-brand-text-muted">
               <p className="text-xs uppercase tracking-[0.2em] text-brand-primary mb-1">
@@ -600,13 +597,9 @@ export default function Home() {
               )}
             </div>
           )}
-
-          {/* 3. The ref div doesn't need to be fully visible, but it needs to exist. */}
-          <div ref={chatEndRef} className="h-0 w-0" />
         </main>
 
         {/* Sticky Bottom Action Panel */}
-        {/* 4. Removed mt-auto; flex-1 on main already pushes this to the absolute bottom */}
         <div className="border-t border-brand-border bg-brand-bg z-10 shrink-0">
           <footer>
             <VoiceInterface
