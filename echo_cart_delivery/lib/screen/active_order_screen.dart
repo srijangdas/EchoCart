@@ -6,11 +6,12 @@ import '../utils/colors.dart';
 import '../utils/utils.dart';
 import '../services/order_service.dart';
 import '../services/secure_storage_service.dart';
-import 'orders_screen.dart';
 
 class ActiveOrderScreen extends StatefulWidget {
   final OrderModel? order;
-  const ActiveOrderScreen({super.key, this.order});
+  final VoidCallback? onActiveOrderCleared;
+
+  const ActiveOrderScreen({super.key, this.order, this.onActiveOrderCleared});
 
   @override
   State<ActiveOrderScreen> createState() => _ActiveOrderScreenState();
@@ -66,6 +67,20 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
       );
 
       if (success) {
+        if (newStatus == DeliveryStatus.delivered) {
+          await _orderService.clearActiveOrder();
+          if (mounted) {
+            showAppSnackbar(
+              context: context,
+              type: SnackbarType.success,
+              description: 'Order marked as delivered. Active order cleared.',
+            );
+            widget.onActiveOrderCleared?.call();
+            setState(() => _activeOrder = null);
+          }
+          return;
+        }
+
         setState(() {
           _activeOrder?.deliveryStatus = newStatus;
         });
@@ -101,27 +116,111 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     }
   }
 
-  Widget _buildStatusButton(
-    DeliveryStatus status,
-    String label,
-    bool isActive,
-    bool isCompleted,
-  ) {
+  Future<void> _cancelOrder() async {
+    if (_activeOrder == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Order'),
+        content: const Text('Are you sure you want to cancel this order?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Yes'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _loading = true);
+    try {
+      final token = await SecureStorageService.getToken();
+      if (token == null || token.isEmpty) {
+        if (mounted) {
+          showAppSnackbar(
+            context: context,
+            type: SnackbarType.error,
+            description: 'No token found.',
+          );
+        }
+        return;
+      }
+
+      final success = await _orderService.cancelOrder(
+        token: token,
+        orderId: _activeOrder!.id,
+      );
+
+      if (success) {
+        await _orderService.clearActiveOrder();
+        if (mounted) {
+          showAppSnackbar(
+            context: context,
+            type: SnackbarType.success,
+            description: 'Order cancelled successfully.',
+          );
+          widget.onActiveOrderCleared?.call();
+          setState(() => _activeOrder = null);
+        }
+      } else {
+        if (mounted) {
+          showAppSnackbar(
+            context: context,
+            type: SnackbarType.error,
+            description: 'Failed to cancel order.',
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        showAppSnackbar(
+          context: context,
+          type: SnackbarType.error,
+          description: 'Error: ${e.toString()}',
+        );
+      }
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  Widget _buildStatusButton(DeliveryStatus status, String label) {
+    final statusOrder = [
+      DeliveryStatus.accepted,
+      DeliveryStatus.shopping,
+      DeliveryStatus.inTransit,
+      DeliveryStatus.delivered,
+    ];
+    final currentIndex = statusOrder.indexOf(
+      _activeOrder?.deliveryStatus ?? DeliveryStatus.accepted,
+    );
+    final statusIndex = statusOrder.indexOf(status);
+    final isCompleted = statusIndex < currentIndex;
+    final isCurrent = statusIndex == currentIndex;
+    final isNext = statusIndex == currentIndex + 1;
+
     return Expanded(
       child: GestureDetector(
-        onTap: isActive && !_loading
-            ? () => _updateDeliveryStatus(status)
-            : null,
+        onTap: isNext && !_loading ? () => _updateDeliveryStatus(status) : null,
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
             color: isCompleted
                 ? buttonMainColor
-                : isActive
+                : isCurrent
                 ? Colors.white
                 : Colors.grey.shade200,
             border: Border.all(
-              color: isActive ? buttonMainColor : Colors.grey.shade300,
+              color: isCompleted || isCurrent
+                  ? buttonMainColor
+                  : Colors.grey.shade300,
               width: 2,
             ),
             borderRadius: BorderRadius.circular(8),
@@ -130,7 +229,11 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                isCompleted ? Icons.check_circle : Icons.radio_button_unchecked,
+                isCompleted
+                    ? Icons.check_circle
+                    : isCurrent
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_unchecked,
                 color: isCompleted ? Colors.white : iconColor,
                 size: 20,
               ),
@@ -163,20 +266,6 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     );
     final statusIndex = statusOrder.indexOf(status);
     return statusIndex < currentIndex;
-  }
-
-  bool _isStatusActive(DeliveryStatus status) {
-    final statusOrder = [
-      DeliveryStatus.accepted,
-      DeliveryStatus.shopping,
-      DeliveryStatus.inTransit,
-      DeliveryStatus.delivered,
-    ];
-    final currentIndex = statusOrder.indexOf(
-      _activeOrder?.deliveryStatus ?? DeliveryStatus.accepted,
-    );
-    final statusIndex = statusOrder.indexOf(status);
-    return statusIndex == currentIndex + 1;
   }
 
   @override
@@ -234,10 +323,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: IconThemeData(color: iconColor),
-        title: Text(
-          'Active Order ${order.id}',
-          style: TextStyle(color: iconColor),
-        ),
+        title: Text('Active Order', style: TextStyle(color: iconColor)),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -285,6 +371,23 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
                                 ),
                               ],
                             ),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.paste,
+                                  size: 16,
+                                  color: buttonMainColor,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Order Id:  ${order.id}',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -316,31 +419,21 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
                             _buildStatusButton(
                               DeliveryStatus.accepted,
                               'Accepted',
-                              _isStatusActive(DeliveryStatus.accepted) ||
-                                  order.deliveryStatus ==
-                                      DeliveryStatus.accepted,
-                              _isStatusCompleted(DeliveryStatus.accepted),
                             ),
                             const SizedBox(width: 8),
                             _buildStatusButton(
                               DeliveryStatus.shopping,
                               'Shopping',
-                              _isStatusActive(DeliveryStatus.shopping),
-                              _isStatusCompleted(DeliveryStatus.shopping),
                             ),
                             const SizedBox(width: 8),
                             _buildStatusButton(
                               DeliveryStatus.inTransit,
                               'In Transit',
-                              _isStatusActive(DeliveryStatus.inTransit),
-                              _isStatusCompleted(DeliveryStatus.inTransit),
                             ),
                             const SizedBox(width: 8),
                             _buildStatusButton(
                               DeliveryStatus.delivered,
                               'Delivered',
-                              _isStatusActive(DeliveryStatus.delivered),
-                              _isStatusCompleted(DeliveryStatus.delivered),
                             ),
                           ],
                         ),
@@ -405,6 +498,29 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
                           ],
                         ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Cancel Order Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: _loading ? null : _cancelOrder,
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.red.shade400),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: Text(
+                        'Cancel Order',
+                        style: TextStyle(
+                          color: Colors.red.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),

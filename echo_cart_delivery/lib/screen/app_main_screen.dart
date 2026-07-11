@@ -24,7 +24,10 @@ class _AppMainScreenState extends State<AppMainScreen> {
       onActiveOrderSelected: _handleActiveOrderSelected,
       activeOrderId: _activeOrder?.id,
     ),
-    ActiveOrderScreen(order: _activeOrder),
+    ActiveOrderScreen(
+      order: _activeOrder,
+      onActiveOrderCleared: _handleActiveOrderCleared,
+    ),
     AccountScreen(),
   ];
 
@@ -50,6 +53,14 @@ class _AppMainScreenState extends State<AppMainScreen> {
     setState(() {
       _activeOrder = order;
       _selectedIndex = 1;
+    });
+  }
+
+  void _handleActiveOrderCleared() {
+    _orderService.clearActiveOrder();
+    setState(() {
+      _activeOrder = null;
+      _selectedIndex = 0;
     });
   }
 

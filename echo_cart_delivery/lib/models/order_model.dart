@@ -1,6 +1,6 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-enum OrderStatus { pending, accepted, rejected, completed }
+enum OrderStatus { pending, accepted, rejected, cancelled, completed }
 
 enum DeliveryStatus { accepted, shopping, inTransit, delivered }
 

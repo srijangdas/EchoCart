@@ -192,6 +192,7 @@ class OrderService {
   static OrderStatus _mapOrderStatus(String s) {
     final lower = s.toLowerCase();
     if (lower.contains('accept')) return OrderStatus.accepted;
+    if (lower.contains('cancel')) return OrderStatus.cancelled;
     if (lower.contains('complete') || lower.contains('delivered')) {
       return OrderStatus.completed;
     }
