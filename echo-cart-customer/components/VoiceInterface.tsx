@@ -13,6 +13,7 @@ interface ActiveOrderState {
 interface VoiceInterfaceProps {
   currentCart: any;
   activeOrder: ActiveOrderState;
+  conversationHistory?: Array<{ role: "user" | "ai"; text: string }>;
   onCartUpdate: (updatedCart: any) => void;
   onOrderStateChange: (order: ActiveOrderState) => void;
   onNewUserMessage: (text: string) => void;
@@ -22,6 +23,7 @@ interface VoiceInterfaceProps {
 export default function VoiceInterface({
   currentCart,
   activeOrder,
+  conversationHistory = [],
   onCartUpdate,
   onOrderStateChange,
   onNewUserMessage,
@@ -84,6 +86,10 @@ export default function VoiceInterface({
       formData.append("audio", audioBlob);
       // Pass the current state of the cart as a clean string stringified JSON
       formData.append("currentCart", JSON.stringify(currentCart));
+      formData.append(
+        "conversationContext",
+        JSON.stringify(conversationHistory.slice(-8)),
+      );
       formData.append("activeOrderId", activeOrder.id || "");
       formData.append("activeOrderStatus", activeOrder.status || "");
 
