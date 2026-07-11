@@ -2,6 +2,7 @@ package icu.telepathystudios.echocart.controller;
 
 import icu.telepathystudios.echocart.dto.order.CreateOrderRequest;
 import icu.telepathystudios.echocart.dto.order.OrderResponse;
+import icu.telepathystudios.echocart.dto.order.OrderStatusRequest;
 import icu.telepathystudios.echocart.dto.order.OrderStatusResponse;
 import icu.telepathystudios.echocart.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -9,6 +10,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -82,6 +84,19 @@ public class OrderController {
     @GetMapping("/{orderId}/status")
     public OrderStatusResponse getOrderStatus(@PathVariable UUID orderId){
         return orderService.orderStatus(orderId);
+    }
+
+    @PutMapping("/{orderId}/status")
+    public ResponseEntity<Void> updateDeliveryStatus(
+            @PathVariable UUID orderId,
+            @RequestBody OrderStatusRequest request) {
+
+        String status = request.getStatus();
+
+        // Your logic to update the order status using orderId and status goes here
+        orderService.setStatus(orderId, status);
+
+        return ResponseEntity.ok().build();
     }
 
 }

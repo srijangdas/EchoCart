@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../utils/colors.dart';
 import '../models/order_model.dart';
 import '../utils/utils.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/order_service.dart';
@@ -11,8 +10,13 @@ import '../services/secure_storage_service.dart';
 
 class OrdersScreen extends StatefulWidget {
   final ValueChanged<OrderModel>? onActiveOrderSelected;
+  final String? activeOrderId;
 
-  const OrdersScreen({super.key, this.onActiveOrderSelected});
+  const OrdersScreen({
+    super.key,
+    this.onActiveOrderSelected,
+    this.activeOrderId,
+  });
 
   @override
   State<OrdersScreen> createState() => _OrdersScreenState();
@@ -30,25 +34,53 @@ class _OrdersScreenState extends State<OrdersScreen> {
   void initState() {
     super.initState();
     _orders = [];
+    _activeOrderId = widget.activeOrderId;
     _loadOrders();
+    _restoreActiveOrderId();
+  }
+
+  @override
+  void didUpdateWidget(covariant OrdersScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.activeOrderId != oldWidget.activeOrderId) {
+      setState(() => _activeOrderId = widget.activeOrderId);
+    }
   }
 
   Future<void> _loadOrders() async {
     try {
       final token = await SecureStorageService.getToken();
       if (token == null || token.isEmpty) {
-        setState(() => _orders = List<OrderModel>.from(_sampleOrders));
-      } else {
-        final list = await _orderService.fetchAvailableOrders(token: token);
-        if (list.isEmpty) {
-          setState(() => _orders = List<OrderModel>.from(_sampleOrders));
-        } else {
-          setState(() => _orders = list);
+        if (mounted) {
+          setState(() => _orders = []);
         }
+        return;
+      }
+
+      final list = await _orderService.fetchAvailableOrders(token: token);
+      if (mounted) {
+        setState(() => _orders = list);
       }
     } catch (_) {
-      setState(() => _orders = List<OrderModel>.from(_sampleOrders));
+      if (mounted) {
+        setState(() => _orders = []);
+      }
     }
+  }
+
+  Future<void> _restoreActiveOrderId() async {
+    final savedOrder = await _orderService.getSavedActiveOrder();
+    if (!mounted || savedOrder == null) return;
+
+    setState(() {
+      _activeOrderId = savedOrder.id;
+      for (final order in _orders) {
+        if (order.id == savedOrder.id) {
+          order.status = savedOrder.status;
+          order.deliveryStatus = savedOrder.deliveryStatus;
+        }
+      }
+    });
   }
 
   Future<void> _onOrderStatusChanged(
@@ -199,58 +231,70 @@ class _OrdersScreenState extends State<OrdersScreen> {
             const SizedBox(height: 12),
 
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                itemCount: _orders.length,
-                itemBuilder: (context, index) {
-                  final order = _orders[index];
-                  final isActiveOrder = _activeOrderId == order.id;
-                  final hasActiveOrder = _activeOrderId != null;
-
-                  final card = OrderCard(
-                    order: order,
-                    isActive: isActiveOrder,
-                    hasActiveOrder: hasActiveOrder,
-                    onStatusChanged: _onOrderStatusChanged,
-                    onViewDetails: widget.onActiveOrderSelected,
-                  );
-
-                  Widget item = card;
-                  if (order.status != OrderStatus.pending &&
-                      order.status != OrderStatus.accepted) {
-                    item = Dismissible(
-                      key: ValueKey(order.id),
-                      direction: DismissDirection.endToStart,
-                      background: Container(
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        color: Colors.redAccent,
-                        child: const Icon(Icons.delete, color: Colors.white),
+              child: _orders.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No orders available right now.',
+                        style: TextStyle(color: Colors.black54, fontSize: 16),
                       ),
-                      onDismissed: (_) {
-                        setState(() {
-                          if (index >= 0 && index < _orders.length) {
-                            _orders.removeAt(index);
-                          }
-                        });
-                      },
-                      child: card,
-                    );
-                  }
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      itemCount: _orders.length,
+                      itemBuilder: (context, index) {
+                        final order = _orders[index];
+                        final isActiveOrder = _activeOrderId == order.id;
+                        final hasActiveOrder = _activeOrderId != null;
 
-                  // Add spacing after each item except last
-                  return Column(
-                    children: [
-                      item,
-                      if (index != _orders.length - 1)
-                        const SizedBox(height: 12),
-                    ],
-                  );
-                },
-              ),
+                        final card = OrderCard(
+                          order: order,
+                          isActive: isActiveOrder,
+                          hasActiveOrder: hasActiveOrder,
+                          onStatusChanged: _onOrderStatusChanged,
+                          onViewDetails: widget.onActiveOrderSelected,
+                        );
+
+                        Widget item = card;
+                        if (order.status != OrderStatus.pending &&
+                            order.status != OrderStatus.accepted) {
+                          item = Dismissible(
+                            key: ValueKey(order.id),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
+                              color: Colors.redAccent,
+                              child: const Icon(
+                                Icons.delete,
+                                color: Colors.white,
+                              ),
+                            ),
+                            onDismissed: (_) {
+                              setState(() {
+                                if (index >= 0 && index < _orders.length) {
+                                  _orders.removeAt(index);
+                                }
+                              });
+                            },
+                            child: card,
+                          );
+                        }
+
+                        // Add spacing after each item except last
+                        return Column(
+                          children: [
+                            item,
+                            if (index != _orders.length - 1)
+                              const SizedBox(height: 12),
+                          ],
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -258,29 +302,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
     );
   }
 }
-
-final List<OrderModel> _sampleOrders = [
-  OrderModel(
-    id: '1',
-    customerName: 'John Smith',
-    customerPhone: '+919876543210',
-    item: 'Amul 1L Milk Pouch',
-    quantity: 1,
-    price: 60,
-    deliveryLocation: LatLng(12.9716, 77.5946),
-    deliveryAddress: '67 Main St, Bangalore',
-  ),
-  OrderModel(
-    id: '2',
-    customerName: 'Jane Doe',
-    customerPhone: '+919812345678',
-    item: 'Kinder Joy 1Pc',
-    quantity: 2,
-    price: 150,
-    deliveryLocation: LatLng(12.2958, 76.6394),
-    deliveryAddress: '45, MG Road, Lonavlawa',
-  ),
-];
 
 class OrderCard extends StatefulWidget {
   final OrderModel order;

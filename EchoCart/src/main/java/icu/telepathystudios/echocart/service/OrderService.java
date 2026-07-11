@@ -94,6 +94,23 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
+    public void setStatus(UUID orderId, String status) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String phoneNo = auth.getName();
+
+        User user = userRepo.findByPhoneNo(phoneNo).orElseThrow(
+                ()->
+                        new RuntimeException("User not found")
+        );
+
+        Order order =  orderRepo.findById(orderId).orElseThrow(() ->
+                        new RuntimeException("Order not found"));
+
+        order.setOrderStatus(OrderStatus.valueOf(status));
+
+        orderRepo.save(order);
+    }
+
     public record CustomerData(
             UUID customerId,
             String customerName,

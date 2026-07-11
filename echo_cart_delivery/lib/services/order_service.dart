@@ -12,6 +12,7 @@ const _ordersBaseUrl = 'https://api.echocart.in/api/orders';
 
 class OrderService {
   static const _kCompletedKey = 'completed_orders';
+  static const _kActiveOrderKey = 'active_order';
 
   final StreamController<void> _changeController =
       StreamController<void>.broadcast();
@@ -191,10 +192,12 @@ class OrderService {
   static OrderStatus _mapOrderStatus(String s) {
     final lower = s.toLowerCase();
     if (lower.contains('accept')) return OrderStatus.accepted;
-    if (lower.contains('complete') || lower.contains('delivered'))
+    if (lower.contains('complete') || lower.contains('delivered')) {
       return OrderStatus.completed;
-    if (lower.contains('reject') || lower.contains('rejected'))
+    }
+    if (lower.contains('reject') || lower.contains('rejected')) {
       return OrderStatus.rejected;
+    }
     return OrderStatus.pending;
   }
 
@@ -225,6 +228,25 @@ class OrderService {
   Future<void> clearCompleted() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kCompletedKey);
+    _changeController.add(null);
+  }
+
+  Future<void> saveActiveOrder(OrderModel order) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kActiveOrderKey, json.encode(order.toJson()));
+    _changeController.add(null);
+  }
+
+  Future<OrderModel?> getSavedActiveOrder() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kActiveOrderKey);
+    if (raw == null || raw.isEmpty) return null;
+    return OrderModel.fromJson(json.decode(raw) as Map<String, dynamic>);
+  }
+
+  Future<void> clearActiveOrder() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kActiveOrderKey);
     _changeController.add(null);
   }
 
@@ -355,8 +377,9 @@ class OrderService {
   static DeliveryStatus _mapDeliveryStatus(String s) {
     final lower = s.toLowerCase();
     if (lower.contains('shopping')) return DeliveryStatus.shopping;
-    if (lower.contains('transit') || lower.contains('in_transit'))
+    if (lower.contains('transit') || lower.contains('in_transit')) {
       return DeliveryStatus.inTransit;
+    }
     if (lower.contains('deliver')) return DeliveryStatus.delivered;
     return DeliveryStatus.accepted;
   }
