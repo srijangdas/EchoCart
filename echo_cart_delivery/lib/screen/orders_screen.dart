@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 
 import '../utils/colors.dart';
 import '../models/order_model.dart';
@@ -29,6 +30,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   late List<OrderModel> _orders;
   String? _activeOrderId; // Track the active/accepted order
+  Timer? _refreshTimer;
 
   @override
   void initState() {
@@ -37,6 +39,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
     _activeOrderId = widget.activeOrderId;
     _loadOrders();
     _restoreActiveOrderId();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (mounted) {
+        _loadOrders();
+      }
+    });
   }
 
   @override
@@ -44,6 +51,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     super.didUpdateWidget(oldWidget);
     if (widget.activeOrderId != oldWidget.activeOrderId) {
       setState(() => _activeOrderId = widget.activeOrderId);
+      _loadOrders();
     }
   }
 
@@ -81,6 +89,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
         }
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _onOrderStatusChanged(
@@ -250,6 +264,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         final hasActiveOrder = _activeOrderId != null;
 
                         final card = OrderCard(
+                          key: ValueKey(order.id),
                           order: order,
                           isActive: isActiveOrder,
                           hasActiveOrder: hasActiveOrder,
@@ -331,6 +346,16 @@ class _OrderCardState extends State<OrderCard> {
   void initState() {
     super.initState();
     order = widget.order;
+  }
+
+  @override
+  void didUpdateWidget(covariant OrderCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.order != oldWidget.order) {
+      setState(() {
+        order = widget.order;
+      });
+    }
   }
 
   Widget _buildDeliveryStatusIndicator() {
@@ -556,8 +581,12 @@ class _OrderCardState extends State<OrderCard> {
         label = 'Rejected';
         bg = Colors.red.withAlpha(40);
         break;
+      case OrderStatus.cancelled:
+        label = 'Cancelled';
+        bg = Colors.red.withAlpha(40);
+        break;
       case OrderStatus.completed:
-        label = 'Completed';
+        label = 'Delivered';
         bg = Colors.blue.withAlpha(40);
         break;
       default:

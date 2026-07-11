@@ -63,6 +63,8 @@ const getDriverDetails = (payload: any) => {
     payload?.courier ||
     {};
   const deliveryPersonName =
+    payload?.deliverName ||
+    payload?.deliveryName ||
     payload?.deliveryPersonName ||
     payload?.deliveryManName ||
     payload?.driverName ||
@@ -70,6 +72,7 @@ const getDriverDetails = (payload: any) => {
     driver?.fullName ||
     null;
   const deliveryPersonMobile =
+    payload?.deliveryPhoneNo ||
     payload?.deliveryPersonMobile ||
     payload?.deliveryManMobile ||
     payload?.driverMobile ||
@@ -512,9 +515,9 @@ export default function Home() {
 
   return (
     // 1. Strictly lock the outermost wrapper to the exact device height
-    <div className="h-dvh w-full bg-brand-bg overflow-hidden flex justify-center">
-      {/* 2. Inner wrapper takes 100% of the locked height (h-full instead of h-dvh) */}
-      <div className="flex flex-col h-full w-full max-w-md lg:max-w-lg xl:max-w-xl border-x border-brand-border bg-brand-bg text-white overflow-hidden">
+    <div className="min-h-screen max-h-screen w-full bg-brand-bg overflow-hidden flex justify-center">
+      {/* 2. Inner wrapper stays pinned to the viewport and lets the chat area scroll independently */}
+      <div className="flex flex-col h-screen w-full max-w-md lg:max-w-lg xl:max-w-xl border-x border-brand-border bg-brand-bg text-white overflow-hidden">
         {/* Header */}
         <header
           className="p-6 border-b border-brand-border bg-brand-surface flex justify-between items-center z-10 shrink-0"

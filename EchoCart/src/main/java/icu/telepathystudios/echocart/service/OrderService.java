@@ -37,6 +37,10 @@ public class OrderService {
                 new RuntimeException("Order not found"));
         UUID partnerId = order.getPartnerId();
 
+        if(partnerId.toString().isEmpty()){
+            throw new RuntimeException("PartnerId is empty");
+        }
+
         PartnerProfile partnerProfile = partnerProfileRepo.findById(partnerId).orElseThrow(() ->
                 new RuntimeException("Partner not found"));
 
