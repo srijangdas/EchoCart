@@ -363,12 +363,13 @@ class OrderService {
     required String status,
   }) async {
     final uri = Uri.parse('$_ordersBaseUrl/$orderId/status');
-    final resp = await http.get(
+    final resp = await http.put(
       uri,
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
+      body: jsonEncode({'status': status}),
     );
     return resp.statusCode >= 200 && resp.statusCode < 300;
   }
