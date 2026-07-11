@@ -125,11 +125,13 @@ export default function VoiceInterface({
       if (data.orderUpdate) {
         onNewSystemMessage(data.orderUpdate.message);
 
-        if (
-          data.orderUpdate.shouldOpenDialer &&
-          activeOrder.deliveryPersonMobile
-        ) {
-          window.location.href = `tel:${activeOrder.deliveryPersonMobile}`;
+        const phoneNumber =
+          data.orderUpdate.deliveryPersonMobile ||
+          activeOrder.deliveryPersonMobile ||
+          null;
+
+        if (data.orderUpdate.shouldOpenDialer && phoneNumber) {
+          window.location.href = `tel:${phoneNumber}`;
         }
 
         if (data.orderUpdate.shouldResetActiveOrder) {
@@ -143,8 +145,11 @@ export default function VoiceInterface({
           onOrderStateChange({
             id: activeOrder.id,
             status: data.orderUpdate.orderStatus,
-            deliveryPersonName: activeOrder.deliveryPersonName,
-            deliveryPersonMobile: data.orderUpdate.deliveryPersonMobile || null,
+            deliveryPersonName:
+              data.orderUpdate.deliveryPersonName ||
+              activeOrder.deliveryPersonName ||
+              null,
+            deliveryPersonMobile: phoneNumber,
           });
         }
         return;

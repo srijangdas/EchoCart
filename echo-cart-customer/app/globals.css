@@ -11,7 +11,14 @@
   --color-brand-text-muted: #a1a1aa;
 }
 
+html,
 body {
-  height: auto;
+  margin: 0;
+  min-height: 100%;
+  background-color: #000000;
   color: aquamarine;
+}
+
+body {
+  min-height: 100vh;
 }
