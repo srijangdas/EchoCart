@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../utils/colors.dart';
 import '../models/order_model.dart';
+import '../services/order_service.dart';
 import 'orders_screen.dart';
 import 'active_order_screen.dart';
 import 'account_screen.dart';
@@ -16,14 +17,36 @@ class AppMainScreen extends StatefulWidget {
 class _AppMainScreenState extends State<AppMainScreen> {
   int _selectedIndex = 0;
   OrderModel? _activeOrder;
+  final OrderService _orderService = OrderService();
 
   List<Widget> get _pages => [
-    OrdersScreen(onActiveOrderSelected: _handleActiveOrderSelected),
+    OrdersScreen(
+      onActiveOrderSelected: _handleActiveOrderSelected,
+      activeOrderId: _activeOrder?.id,
+    ),
     ActiveOrderScreen(order: _activeOrder),
     AccountScreen(),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _restoreActiveOrder();
+  }
+
+  Future<void> _restoreActiveOrder() async {
+    final restored = await _orderService.getSavedActiveOrder();
+    if (!mounted) return;
+    if (restored != null) {
+      setState(() {
+        _activeOrder = restored;
+        _selectedIndex = 1;
+      });
+    }
+  }
+
   void _handleActiveOrderSelected(OrderModel order) {
+    _orderService.saveActiveOrder(order);
     setState(() {
       _activeOrder = order;
       _selectedIndex = 1;
@@ -51,10 +74,10 @@ class _AppMainScreenState extends State<AppMainScreen> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withAlpha(60), 
-              offset: Offset(0, 5), 
-              blurRadius: 10.0, 
-              spreadRadius: 2.0, 
+              color: Colors.black.withAlpha(60),
+              offset: Offset(0, 5),
+              blurRadius: 10.0,
+              spreadRadius: 2.0,
             ),
           ],
         ),

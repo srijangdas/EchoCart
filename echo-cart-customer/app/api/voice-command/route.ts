@@ -3,11 +3,43 @@ import { NextResponse } from "next/server";
 // Ensure you add OPENAI_API_KEY to your .env.local file
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
+type ConversationEntry = {
+  role: "user" | "ai";
+  text: string;
+};
+
+const parseConversationContext = (
+  rawValue: FormDataEntryValue | null,
+): ConversationEntry[] => {
+  if (!rawValue || typeof rawValue !== "string") return [];
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.filter(
+      (entry): entry is ConversationEntry =>
+        Boolean(entry) &&
+        typeof entry === "object" &&
+        "role" in entry &&
+        "text" in entry &&
+        (entry.role === "user" || entry.role === "ai") &&
+        typeof entry.text === "string",
+    );
+  } catch (error) {
+    console.warn("Failed to parse conversation context:", error);
+    return [];
+  }
+};
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const audioFile = formData.get("audio") as Blob;
     const currentCartString = formData.get("currentCart") as string;
+    const conversationContext = parseConversationContext(
+      formData.get("conversationContext"),
+    );
     const activeOrderId = formData.get("activeOrderId") as string | null;
     const activeOrderStatus = formData.get("activeOrderStatus") as
       | string
@@ -195,6 +227,8 @@ export async function POST(req: Request) {
     - For generic groceries (e.g., potatoes, rice, milk), DO NOT include "brand", "model", or "color". Just name, price, and quantity.
     - If the user explicitly asks to "checkout", "place the order", or says they are "done", set the "checkoutRequested" flag to true. Otherwise, false.
     - Do NOT allow checkout if the resulting cart has no items. If the cart is empty, return a clarification asking the user to add at least one item first.
+    - Use the conversation history to resolve follow-up requests. If the user mentions an item first and then gives a quantity in a later turn, combine them into a single cart entry. Do not ask for the same detail again if the latest turn already provided it.
+    - If the latest request is a short quantity or size follow-up (for example: "2 kg", "2kgs", "500 ml", "one bottle"), treat it as applying to the most recent item mentioned in the conversation.
     When defining an item's name, always incorporate the specific unit, package type, or metric mentioned by the user if it dictates weight or volume.
     For example, if a user asks for '2.5 kg potatoes', set name to 'Potatoes (kg)' and quantity to 2.5. If they ask for 'one 500 ml milk carton', set name to '500ml Milk Carton' and quantity to 1.
     If the user requests a specific brand or variant, include that in the name. For example, 'Amul Butter 200g' or 'Tata Salt 1kg'.
@@ -214,6 +248,16 @@ export async function POST(req: Request) {
     OR, when clarification is needed:
     {"action":"clarify","message":"Could you be more specific about which snacks you want?"}`;
 
+    const conversationSummary = conversationContext.length
+      ? `CONVERSATION HISTORY:\n${conversationContext
+          .slice(-6)
+          .map(
+            (entry) =>
+              `${entry.role === "user" ? "User" : "Assistant"}: ${entry.text}`,
+          )
+          .join("\n")}\n\n`
+      : "";
+
     const llmResponse = await fetch(
       "https://api.openai.com/v1/chat/completions",
       {
@@ -228,7 +272,7 @@ export async function POST(req: Request) {
             { role: "system", content: systemPrompt },
             {
               role: "user",
-              content: `CURRENT CART: ${currentCartString}\n\nUSER REQUEST: "${userSpokenText}"\n\nReturn the updated JSON cart.`,
+              content: `${conversationSummary}CURRENT CART: ${currentCartString}\n\nUSER REQUEST: "${userSpokenText}"\n\nReturn the updated JSON cart.`,
             },
           ],
           temperature: 0.1, // Keep it low so the AI doesn't get overly creative with the JSON formatting

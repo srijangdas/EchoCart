@@ -609,6 +609,7 @@ export default function Home() {
             <VoiceInterface
               currentCart={cart}
               activeOrder={activeOrder}
+              conversationHistory={messages.slice(-8)}
               onCartUpdate={handleCartUpdate}
               onOrderStateChange={setActiveOrder}
               onNewUserMessage={handleNewUserMessage}

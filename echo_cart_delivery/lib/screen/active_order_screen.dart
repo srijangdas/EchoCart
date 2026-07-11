@@ -27,6 +27,14 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     _activeOrder = widget.order;
   }
 
+  @override
+  void didUpdateWidget(covariant ActiveOrderScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.order != oldWidget.order) {
+      setState(() => _activeOrder = widget.order);
+    }
+  }
+
   Future<void> _updateDeliveryStatus(DeliveryStatus newStatus) async {
     if (_activeOrder == null) return;
 
@@ -61,6 +69,9 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         setState(() {
           _activeOrder?.deliveryStatus = newStatus;
         });
+        if (_activeOrder != null) {
+          await _orderService.saveActiveOrder(_activeOrder!);
+        }
         if (mounted) {
           showAppSnackbar(
             context: context,
