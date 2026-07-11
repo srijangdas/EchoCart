@@ -6,6 +6,7 @@ import '../utils/colors.dart';
 import '../utils/utils.dart';
 import '../services/order_service.dart';
 import '../services/secure_storage_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ActiveOrderScreen extends StatefulWidget {
   final OrderModel? order;
@@ -503,25 +504,67 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
                   const SizedBox(height: 16),
 
                   // Cancel Order Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: _loading ? null : _cancelOrder,
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.red.shade400),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                  Row(
+                    children: [
+                      // 1. Call Customer Button (Outlined style, left side)
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _loading
+                              ? null
+                              : () async {
+                                  final Uri launchUri = Uri(
+                                    scheme: 'tel',
+                                    path: order.customerPhone,
+                                  );
+                                  if (await canLaunchUrl(launchUri)) {
+                                    await launchUrl(launchUri);
+                                  }
+                                },
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: Colors.red.shade400),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          child: Text(
+                            'Call Customer',
+                            style: TextStyle(
+                              color: Colors.red.shade700,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      child: Text(
-                        'Cancel Order',
-                        style: TextStyle(
-                          color: Colors.red.shade700,
-                          fontWeight: FontWeight.w600,
+
+                      const SizedBox(
+                        width: 12,
+                      ), // Spacer between the two buttons
+                      // 2. Cancel Order Button (Solid red fill background style, right side)
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _loading ? null : _cancelOrder,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                Colors.red.shade600, // Solid fill color
+                            foregroundColor: Colors.white, // Text color
+                            disabledBackgroundColor: Colors
+                                .red
+                                .shade200, // Background color when loading/disabled
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            elevation:
+                                0, // Keeps it flat to align styling cleanly with the outlined button
+                          ),
+                          child: Text(
+                            'Cancel Order',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                   const SizedBox(height: 16),
 
