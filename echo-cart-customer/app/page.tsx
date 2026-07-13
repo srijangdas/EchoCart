@@ -334,7 +334,7 @@ export default function Home() {
 
       setActiveOrder(restoredOrder);
       handleNewSystemMessage(
-        `Resuming your active order ${restoredOrder.id} with status ${restoredOrder.status}.`,
+        `Resuming your active order ${restoredOrder.id.slice(0, 6)}... with status ${restoredOrder.status}.`,
       );
     } catch (error) {
       console.error("Failed to restore active order from server:", error);
