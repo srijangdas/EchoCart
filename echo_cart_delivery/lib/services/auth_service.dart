@@ -6,6 +6,7 @@ import 'package:echo_cart_delivery/services/secure_storage_service.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:unique_device_identifier/unique_device_identifier.dart';
+import 'package:echo_cart_delivery/utils/is_token_expired.dart';
 import 'package:uuid/uuid.dart';
 
 class AuthService {
@@ -23,17 +24,28 @@ class AuthService {
     String? deviceId = await UniqueDeviceIdentifier.getUniqueIdentifier();
 
     if (deviceId == null) {
-      if (deviceId == null) {
-        final uuid = const Uuid().v4();
-        deviceId = "DefaultId-$uuid";
-        await _driverService.saveDeviceId(deviceId);
-      }
+      final uuid = const Uuid().v4();
+      deviceId = "DefaultId-$uuid";
+      await _driverService.saveDeviceId(deviceId);
     }
 
     // 4. Save the confirmed device ID to your driver service
     await _driverService.saveDeviceId(deviceId);
 
     if (token != null && refreshToken != null) {
+      // If token is expired, attempt refresh using refreshToken
+      final expired = isTokenExpired(token);
+      if (expired) {
+        final refreshed = await refreshLogin(refreshToken: refreshToken);
+        if (refreshed) {
+          return true;
+        }
+
+        // Refresh failed - clear tokens
+        await SecureStorageService.deleteTokens();
+        return false;
+      }
+
       return true;
     }
 
@@ -207,6 +219,36 @@ class AuthService {
       return jsonDecode(body) as Map<String, dynamic>;
     } else {
       return {'error': response.statusCode};
+    }
+  }
+
+  /// Fetch active orders for the delivery partner after login
+  /// This is used to restore the active order state when the app starts
+  Future<Map<String, dynamic>?> fetchActiveOrderOnLogin({
+    required String token,
+  }) async {
+    try {
+      final uri = Uri.parse(
+        'https://api.echocart.in/api/orders/partner/active',
+      );
+      final response = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final body = jsonDecode(response.body);
+        if (body is List && body.isNotEmpty) {
+          // Return the first active order
+          return body[0] as Map<String, dynamic>;
+        }
+      }
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 }

@@ -89,10 +89,12 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 flex flex-col justify-center items-center">
-      <div className="w-full max-w-md bg-zinc-900 p-8 rounded-xl border border-zinc-800 shadow-2xl">
-        <h1 className="text-3xl font-bold mb-2 text-rose-500">Setup Profile</h1>
-        <p className="text-zinc-400 mb-8">
+    <div className="min-h-screen bg-brand-bg text-white p-6 flex flex-col justify-center items-center">
+      <div className="w-full max-w-md bg-brand-surface p-8 rounded-xl border border-brand-border shadow-2xl">
+        <h1 className="text-3xl font-bold mb-2 text-brand-primary">
+          Setup Profile
+        </h1>
+        <p className="text-brand-text-muted mb-8">
           Enter the delivery details for the primary user.
         </p>
 
@@ -104,7 +106,7 @@ export default function Register() {
               type="text"
               name="name"
               onChange={handleChange}
-              className="w-full p-3 bg-black border border-zinc-700 rounded focus:border-rose-500 outline-none"
+              className="w-full p-3 bg-brand-bg border border-brand-border rounded focus:border-brand-primary outline-none"
               required
             />
           </div>
@@ -116,7 +118,7 @@ export default function Register() {
               type="text"
               name="address"
               onChange={handleChange}
-              className="w-full p-3 bg-black border border-zinc-700 rounded focus:border-rose-500 outline-none"
+              className="w-full p-3 bg-brand-bg border border-brand-border rounded focus:border-brand-primary outline-none"
               required
             />
           </div>
@@ -127,7 +129,7 @@ export default function Register() {
                 type="text"
                 name="city"
                 onChange={handleChange}
-                className="w-full p-3 bg-black border border-zinc-700 rounded focus:border-rose-500 outline-none"
+                className="w-full p-3 bg-brand-bg border border-brand-border rounded focus:border-brand-primary outline-none"
                 required
               />
             </div>
@@ -137,7 +139,7 @@ export default function Register() {
                 type="text"
                 name="state"
                 onChange={handleChange}
-                className="w-full p-3 bg-black border border-zinc-700 rounded focus:border-rose-500 outline-none"
+                className="w-full p-3 bg-brand-bg border border-brand-border rounded focus:border-brand-primary outline-none"
                 required
               />
             </div>
@@ -148,7 +150,7 @@ export default function Register() {
               type="text"
               name="pincode"
               onChange={handleChange}
-              className="w-full p-3 bg-black border border-zinc-700 rounded focus:border-rose-500 outline-none"
+              className="w-full p-3 bg-brand-bg border border-brand-border rounded focus:border-brand-primary outline-none"
               required
             />
           </div>
@@ -156,7 +158,7 @@ export default function Register() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-6 py-4 bg-rose-600 text-white font-bold rounded hover:bg-rose-500"
+            className="w-full mt-6 py-4 bg-brand-primary text-white font-bold rounded hover:bg-brand-primary-hover"
           >
             {loading ? "Saving..." : "Complete Setup"}
           </button>

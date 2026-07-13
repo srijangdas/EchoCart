@@ -2,8 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../utils/colors.dart';
 import '../models/order_model.dart';
+<<<<<<< HEAD
 import 'orders_screen.dart';
 import 'order_detail_screen.dart';
+=======
+import '../services/order_service.dart';
+import 'orders_screen.dart';
+import 'active_order_screen.dart';
+>>>>>>> 32131587a0e9a16bd32076bcccf9460796952695
 import 'account_screen.dart';
 
 class AppMainScreen extends StatefulWidget {
@@ -16,6 +22,7 @@ class AppMainScreen extends StatefulWidget {
 class _AppMainScreenState extends State<AppMainScreen> {
   int _selectedIndex = 0;
   OrderModel? _activeOrder;
+<<<<<<< HEAD
 
   List<Widget> get _pages => [
     OrdersScreen(onOrderAccepted: _handleOrderAccepted),
@@ -29,6 +36,52 @@ class _AppMainScreenState extends State<AppMainScreen> {
     setState(() {
       _activeOrder = order;
       _selectedIndex = 1; // Active Order tab
+=======
+  final OrderService _orderService = OrderService();
+
+  List<Widget> get _pages => [
+    OrdersScreen(
+      onActiveOrderSelected: _handleActiveOrderSelected,
+      activeOrderId: _activeOrder?.id,
+    ),
+    ActiveOrderScreen(
+      order: _activeOrder,
+      onActiveOrderCleared: _handleActiveOrderCleared,
+    ),
+    AccountScreen(),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreActiveOrder();
+  }
+
+  Future<void> _restoreActiveOrder() async {
+    final restored = await _orderService.getSavedActiveOrder();
+    if (!mounted) return;
+    if (restored != null) {
+      setState(() {
+        _activeOrder = restored;
+        _selectedIndex = 1;
+      });
+    }
+  }
+
+  void _handleActiveOrderSelected(OrderModel order) {
+    _orderService.saveActiveOrder(order);
+    setState(() {
+      _activeOrder = order;
+      _selectedIndex = 1;
+    });
+  }
+
+  void _handleActiveOrderCleared() {
+    _orderService.clearActiveOrder();
+    setState(() {
+      _activeOrder = null;
+      _selectedIndex = 0;
+>>>>>>> 32131587a0e9a16bd32076bcccf9460796952695
     });
   }
 
@@ -83,9 +136,15 @@ class _AppMainScreenState extends State<AppMainScreen> {
                 label: 'Orders',
               ),
               BottomNavigationBarItem(
+<<<<<<< HEAD
                 icon: _navIcon(Icons.delivery_dining_outlined, false),
                 activeIcon: _navIcon(Icons.delivery_dining, true),
                 label: 'Active',
+=======
+                icon: _navIcon(Icons.local_shipping_outlined, false),
+                activeIcon: _navIcon(Icons.local_shipping, true),
+                label: 'Active Order',
+>>>>>>> 32131587a0e9a16bd32076bcccf9460796952695
               ),
               BottomNavigationBarItem(
                 icon: _navIcon(Icons.person_outline, false),

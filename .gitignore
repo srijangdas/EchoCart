@@ -154,3 +154,5 @@ build/
 EchoCart/echocart-backend.tar
 .idea\workspace.xml
 
+.vercel
+.env*

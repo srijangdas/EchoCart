@@ -195,4 +195,66 @@ public class ProfileService {
 
 
     }
+
+    public CustomerProfileResponse updateProfile(CustomerProfileRequest request) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        String phoneNo = auth.getName();
+
+        User user = userRepo.findByPhoneNo(phoneNo).orElseThrow(
+                ()->
+                        new RuntimeException("User not found")
+        );
+
+        if(!user.getRole().equals("USER")){
+            throw new RuntimeException("Customer Allowed Only!");
+        }
+
+        CustomerProfile profile = customerProfileRepo.findById(user.getId())
+                .orElseThrow(() -> new RuntimeException("Profile does not exist"));
+
+        profile.setName(request.getName());
+        profile.setAddress(request.getAddress());
+        profile.setCity(request.getCity());
+        profile.setState(request.getState());
+        profile.setPincode(request.getPincode());
+
+        profile.setProfilePictureUrl(
+                request.getProfilePictureUrl()
+        );
+        customerProfileRepo.save(profile);
+
+        return new CustomerProfileResponse(
+                profile.getName(),
+                profile.getAddress(),
+                profile.getCity(),
+                profile.getState(),
+                profile.getPincode(),
+                profile.getProfilePictureUrl(),
+                user.getEnabled()
+        );
+
+    }
+
+    public void updateLocation(String coordinates) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        String phoneNo = auth.getName();
+
+        User user = userRepo.findByPhoneNo(phoneNo).orElseThrow(
+                ()->
+                        new RuntimeException("User not found")
+        );
+
+        if(!user.getRole().equals("USER")){
+            throw new RuntimeException("Customer Allowed Only!");
+        }
+
+        CustomerProfile profile = customerProfileRepo.findById(user.getId())
+                .orElseThrow(() -> new RuntimeException("Profile does not exist"));
+
+        profile.setCoordinates(coordinates);
+
+        customerProfileRepo.save(profile);
+    }
 }
