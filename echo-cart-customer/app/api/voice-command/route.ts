@@ -63,6 +63,66 @@ const getCartResetIntent = (text: string) => {
   return resetPhrases && (hasCartContext || normalized.includes("cart"));
 };
 
+const buildFallbackCartUpdate = (text: string) => {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+
+  const hasCompletionPhrase =
+    /\b(that's all|thats all|that's it|thats it|done|finish|complete|all done)\b/i.test(
+      trimmed,
+    );
+
+  const itemEntries: Array<{ name: string; price: number; quantity: number }> =
+    [];
+
+  const addItem = (name: string, quantity: number, price: number) => {
+    if (!name || quantity <= 0) return;
+    itemEntries.push({ name, price, quantity });
+  };
+
+  const dozenEggMatch = trimmed.match(
+    /(\d+(?:\.\d+)?)\s*(dozen|dozens|dz)\s+eggs?/i,
+  );
+  if (dozenEggMatch) {
+    const quantity = Number.parseFloat(dozenEggMatch[1]);
+    addItem("Eggs (dozen)", quantity, 60 * quantity);
+  }
+
+  const eggMatch = trimmed.match(/\b(\d+(?:\.\d+)?)\s+eggs?\b/i);
+  if (eggMatch && !dozenEggMatch) {
+    const quantity = Number.parseFloat(eggMatch[1]);
+    addItem("Eggs", quantity, 8 * quantity);
+  }
+
+  const milkMatch = trimmed.match(
+    /(\d+(?:\.\d+)?)\s*(liters?|litres?|l)\s+(?:of\s+)?milk/i,
+  );
+  if (milkMatch) {
+    const quantity = Number.parseFloat(milkMatch[1]);
+    addItem("Milk", quantity, 55 * quantity);
+  }
+
+  const amulMatch = /\bamul\b/i.test(trimmed);
+  if (amulMatch) {
+    addItem("Amul", 1, 40);
+  }
+
+  if (!itemEntries.length) {
+    return null;
+  }
+
+  const estimatedPrice = itemEntries.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
+
+  return {
+    orderJson: { itemList: itemEntries },
+    estimatedPrice,
+    checkoutRequested: hasCompletionPhrase,
+  };
+};
+
 const getDeliveryDetails = (
   payload: Record<string, any> | null | undefined,
 ) => {
@@ -335,6 +395,14 @@ export async function POST(req: Request) {
           deliveryPersonMobile,
           shouldResetActiveOrder: false,
         },
+      });
+    }
+
+    const fallbackCartUpdate = buildFallbackCartUpdate(userSpokenText);
+    if (fallbackCartUpdate) {
+      return NextResponse.json({
+        transcript: userSpokenText,
+        updatedCart: fallbackCartUpdate,
       });
     }
 

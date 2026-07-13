@@ -192,81 +192,159 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     }
   }
 
+  List<DeliveryStatus> _getStatusOrder() => [
+    DeliveryStatus.accepted,
+    DeliveryStatus.shopping,
+    DeliveryStatus.inTransit,
+    DeliveryStatus.delivered,
+  ];
+
+  String _getStatusLabel(DeliveryStatus status) {
+    switch (status) {
+      case DeliveryStatus.accepted:
+        return 'Accepted';
+      case DeliveryStatus.shopping:
+        return 'Shopping';
+      case DeliveryStatus.inTransit:
+        return 'In Transit';
+      case DeliveryStatus.delivered:
+        return 'Delivered';
+    }
+  }
+
   Widget _buildStatusButton(DeliveryStatus status, String label) {
-    final statusOrder = [
-      DeliveryStatus.accepted,
-      DeliveryStatus.shopping,
-      DeliveryStatus.inTransit,
-      DeliveryStatus.delivered,
-    ];
+    final statusOrder = _getStatusOrder();
     final currentIndex = statusOrder.indexOf(
       _activeOrder?.deliveryStatus ?? DeliveryStatus.accepted,
     );
     final statusIndex = statusOrder.indexOf(status);
     final isCompleted = statusIndex < currentIndex;
     final isCurrent = statusIndex == currentIndex;
-    final isNext = statusIndex == currentIndex + 1;
 
     return Expanded(
-      child: GestureDetector(
-        onTap: isNext && !_loading ? () => _updateDeliveryStatus(status) : null,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isCompleted
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isCompleted
+              ? buttonMainColor
+              : isCurrent
+              ? Colors.white
+              : Colors.grey.shade200,
+          border: Border.all(
+            color: isCompleted || isCurrent
                 ? buttonMainColor
-                : isCurrent
-                ? Colors.white
-                : Colors.grey.shade200,
-            border: Border.all(
-              color: isCompleted || isCurrent
-                  ? buttonMainColor
-                  : Colors.grey.shade300,
-              width: 2,
+                : Colors.grey.shade300,
+            width: 2,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isCompleted
+                  ? Icons.check_circle
+                  : isCurrent
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_unchecked,
+              color: isCompleted ? Colors.white : iconColor,
+              size: 20,
             ),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                isCompleted
-                    ? Icons.check_circle
-                    : isCurrent
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_unchecked,
-                color: isCompleted ? Colors.white : iconColor,
-                size: 20,
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isCompleted ? Colors.white : Colors.black87,
               ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isCompleted ? Colors.white : Colors.black87,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );
   }
 
-  bool _isStatusCompleted(DeliveryStatus status) {
-    final statusOrder = [
-      DeliveryStatus.accepted,
-      DeliveryStatus.shopping,
-      DeliveryStatus.inTransit,
-      DeliveryStatus.delivered,
-    ];
+  Widget _buildStatusSlider() {
+    final statusOrder = _getStatusOrder();
     final currentIndex = statusOrder.indexOf(
       _activeOrder?.deliveryStatus ?? DeliveryStatus.accepted,
     );
-    final statusIndex = statusOrder.indexOf(status);
-    return statusIndex < currentIndex;
+    final currentStatus = statusOrder[currentIndex];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Update progress',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+            Text(
+              _getStatusLabel(currentStatus),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: buttonMainColor,
+              ),
+            ),
+          ],
+        ),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: buttonMainColor,
+            inactiveTrackColor: Colors.grey.shade300,
+            thumbColor: buttonMainColor,
+            overlayColor: buttonMainColor.withAlpha((0.15 * 255).round()),
+            trackHeight: 6,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+          ),
+          child: Slider(
+            min: 0,
+            max: (statusOrder.length - 1).toDouble(),
+            divisions: statusOrder.length - 1,
+            value: currentIndex.toDouble(),
+            label: _getStatusLabel(currentStatus),
+            onChanged: _loading
+                ? null
+                : (value) {
+                    final selectedIndex = value.round();
+                    final selectedStatus = statusOrder[selectedIndex];
+                    if (selectedStatus != currentStatus) {
+                      _updateDeliveryStatus(selectedStatus);
+                    }
+                  },
+          ),
+        ),
+        Row(
+          children: List.generate(statusOrder.length, (index) {
+            final status = statusOrder[index];
+            final isActive = index <= currentIndex;
+            return Expanded(
+              child: Text(
+                _getStatusLabel(status),
+                textAlign: index == 0
+                    ? TextAlign.left
+                    : index == statusOrder.length - 1
+                    ? TextAlign.right
+                    : TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isActive ? buttonMainColor : Colors.grey.shade600,
+                  fontWeight: index == currentIndex
+                      ? FontWeight.w700
+                      : FontWeight.w500,
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
   }
 
   @override
@@ -415,27 +493,32 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Row(
+                        Column(
                           children: [
-                            _buildStatusButton(
-                              DeliveryStatus.accepted,
-                              'Accepted',
+                            Row(
+                              children: [
+                                _buildStatusButton(
+                                  DeliveryStatus.accepted,
+                                  'Accepted',
+                                ),
+                                const SizedBox(width: 8),
+                                _buildStatusButton(
+                                  DeliveryStatus.shopping,
+                                  'Shopping',
+                                ),
+                                const SizedBox(width: 8),
+                                _buildStatusButton(
+                                  DeliveryStatus.inTransit,
+                                  'In Transit',
+                                ),
+                                const SizedBox(width: 8),
+                                _buildStatusButton(
+                                  DeliveryStatus.delivered,
+                                  'Delivered',
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            _buildStatusButton(
-                              DeliveryStatus.shopping,
-                              'Shopping',
-                            ),
-                            const SizedBox(width: 8),
-                            _buildStatusButton(
-                              DeliveryStatus.inTransit,
-                              'In Transit',
-                            ),
-                            const SizedBox(width: 8),
-                            _buildStatusButton(
-                              DeliveryStatus.delivered,
-                              'Delivered',
-                            ),
+                            _buildStatusSlider(),
                           ],
                         ),
                       ],
