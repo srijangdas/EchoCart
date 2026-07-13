@@ -26,11 +26,23 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  // 1. Drop anything that isn't a standard GET request
   if (event.request.method !== "GET") return;
+
+  const url = new URL(event.request.url);
+
+  // 2. CRITICAL FIX: Skip intercepting database backend API traffic entirely
+  if (url.pathname.startsWith("/api/")) {
+    return;
+  }
 
   event.respondWith(
     fetch(event.request)
       .then((response) => {
+        // Safe check: Only cache successful browser page assets
+        if (!response || response.status !== 200 || response.type !== "basic") {
+          return response;
+        }
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return response;
