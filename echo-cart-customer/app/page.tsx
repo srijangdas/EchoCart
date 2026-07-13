@@ -127,6 +127,32 @@ export default function Home() {
     announce("EchoCart AI is ready. Hold the bottom button to speak.");
   }, [announce]);
 
+  const speakText = useCallback((text: string) => {
+    if (typeof window === "undefined" || !text?.trim()) return;
+
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+
+    synth.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "en-US";
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    synth.speak(utterance);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator))
+      return;
+
+    void navigator.serviceWorker
+      .register("/sw.js")
+      .catch((error) =>
+        console.error("Service worker registration failed:", error),
+      );
+  }, []);
+
   const requestLocationPermission = useCallback(async () => {
     if (typeof window === "undefined" || !navigator.geolocation) return;
 
@@ -217,8 +243,9 @@ export default function Home() {
         { id: (Date.now() + 1).toString(), role: "ai", text },
       ]);
       announce(text);
+      speakText(text);
     },
-    [announce],
+    [announce, speakText],
   );
 
   const parseCustomerOrder = (data: any) => {
