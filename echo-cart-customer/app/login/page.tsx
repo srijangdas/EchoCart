@@ -2,7 +2,13 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getDeviceId, setTokens, getTokens, clearAuth } from "@/utils/api"; // Using standard relative paths if @ fails: '../utils/api'
+import {
+  getDeviceId,
+  setTokens,
+  getTokens,
+  clearAuth,
+  checkCustomerProfile,
+} from "@/utils/api"; // Using standard relative paths if @ fails: '../utils/api'
 
 export default function Login() {
   const router = useRouter();
@@ -36,7 +42,8 @@ export default function Login() {
         const data = await res.json();
         if (data.token) {
           setTokens(data.token, data.refreshToken);
-          router.push("/");
+          const { exists } = await checkCustomerProfile(data.token);
+          router.push(exists ? "/" : "/register");
         } else {
           clearAuth();
         }
@@ -78,8 +85,9 @@ export default function Login() {
 
       if (response.ok && data.token) {
         setTokens(data.token, data.refreshToken);
-        // If registering, force them to setup profile. If logging in, go to app.
-        router.push(isRegistering ? "/register" : "/");
+        const { exists } = await checkCustomerProfile(data.token);
+        // If registering, force them to setup profile. If logging in, go to app only when profile exists.
+        router.push(isRegistering || !exists ? "/register" : "/");
       } else {
         setErrorMsg(data.message || "Authentication failed. Please try again.");
       }

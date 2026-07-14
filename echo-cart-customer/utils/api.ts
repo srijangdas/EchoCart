@@ -55,12 +55,40 @@ export const setTokens = (token: string, refreshToken: string) => {
   writeCookie(REFRESH_TOKEN_COOKIE, refreshToken);
 };
 
+export const checkCustomerProfile = async (token: string | null) => {
+  if (typeof window === "undefined" || !token) {
+    return { exists: false, data: null };
+  }
+
+  try {
+    const response = await fetch(`${BASE_URL}/api/profile/customer`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      return { exists: false, data: null };
+    }
+
+    const data = await response.json().catch(() => null);
+    const exists = Boolean(
+      data && typeof data === "object" && Object.keys(data).length > 0,
+    );
+
+    return { exists, data };
+  } catch (error) {
+    console.error("Failed to check customer profile:", error);
+    return { exists: false, data: null };
+  }
+};
+
 export const clearAuth = () => {
   if (typeof window === "undefined") return;
 
-  localStorage.removeItem(TOKEN_COOKIE);
-  localStorage.removeItem(REFRESH_TOKEN_COOKIE);
-  localStorage.removeItem(DEVICE_ID_COOKIE);
+  localStorage.clear();
+  sessionStorage.clear();
   eraseCookie(TOKEN_COOKIE);
   eraseCookie(REFRESH_TOKEN_COOKIE);
   eraseCookie(DEVICE_ID_COOKIE);
