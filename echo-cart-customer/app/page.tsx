@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getTokens } from "@/utils/api";
+import { checkCustomerProfile, getTokens } from "@/utils/api";
 import Link from "next/link";
 import VoiceInterface from "../components/VoiceInterface";
 import { useAccessibility } from "../context/AccessibilityContext";
@@ -113,13 +113,37 @@ export default function Home() {
 
   // Hydration state tracking
   const [isMounted, setIsMounted] = useState(false);
+  const [isAccessReady, setIsAccessReady] = useState(false);
 
-  // Authentication check
+  // Authentication and profile check
   useEffect(() => {
-    const { token } = getTokens();
-    if (!token || isTokenExpired(token)) {
-      router.push("/login");
-    }
+    let ignore = false;
+
+    const validateAccess = async () => {
+      const { token } = getTokens();
+      if (!token || isTokenExpired(token)) {
+        if (!ignore) {
+          router.push("/login");
+        }
+        return;
+      }
+
+      const { exists } = await checkCustomerProfile(token);
+
+      if (!ignore) {
+        if (!exists) {
+          router.push("/register");
+        } else {
+          setIsAccessReady(true);
+        }
+      }
+    };
+
+    void validateAccess();
+
+    return () => {
+      ignore = true;
+    };
   }, [router]);
 
   // Initial load announcement
@@ -534,6 +558,17 @@ export default function Home() {
   if (!isMounted) {
     return (
       <div className="min-h-screen max-h-screen w-full bg-brand-bg overflow-hidden flex justify-center" />
+    );
+  }
+
+  if (!isAccessReady) {
+    return (
+      <div className="min-h-screen bg-brand-bg text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-brand-primary border-t-transparent" />
+          <p className="text-brand-text-muted">Checking your profile...</p>
+        </div>
+      </div>
     );
   }
 
